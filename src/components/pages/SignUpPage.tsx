@@ -427,7 +427,7 @@ export const SignUpPage: React.FC = () => {
                         setErrors({ ...errors, confirmPassword: '' });
                       }}
                       className={`mt-2 h-12 ${errors.confirmPassword ? 'border-red-500' : 'border-2'}`}
-                      placeholder={language === 'ar' ? 'أعد إدخال كلمة ��لمرور' : 'Re-enter password'}
+                      placeholder={language === 'ar' ? 'أعد إدخال كلمة لمرور' : 'Re-enter password'}
                     />
                     {errors.confirmPassword && (
                       <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
@@ -545,6 +545,47 @@ export const SignUpPage: React.FC = () => {
                       {language === 'ar' 
                         ? '💡 سيتم حساب المعدل تلقائياً بعد نهاية كل فصل' 
                         : '💡 GPA will be calculated automatically after each semester'}
+                    </p>
+                  </div>
+
+                  {/* حقل الدور */}
+                  <div className="bg-kku-gold/10 border-2 border-kku-gold/30 rounded-xl p-4">
+                    <Label htmlFor="role" className="text-base font-bold flex items-center gap-2 mb-3">
+                      <User className="h-4 w-4 text-[#D4AF37]" />
+                      {language === 'ar' ? 'نوع الحساب' : 'Account Type'}
+                    </Label>
+                    <Select value={formData.role} onValueChange={(value) => {
+                      setFormData({ ...formData, role: value });
+                    }}>
+                      <SelectTrigger className="h-12 border-2 bg-white/80">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="student">
+                          {language === 'ar' ? '👨‍🎓 طالب (Student)' : '👨‍🎓 Student'}
+                        </SelectItem>
+                        <SelectItem value="supervisor">
+                          {language === 'ar' ? '👔 مشرف أكاديمي (Supervisor)' : '👔 Academic Supervisor'}
+                        </SelectItem>
+                        <SelectItem value="admin">
+                          {language === 'ar' ? '⚙️ مدير النظام (Admin)' : '⚙️ System Admin'}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      {formData.role === 'student' ? (
+                        language === 'ar' 
+                          ? '📚 يمكنك تسجيل المقررات وعرض الجدول والسجل الأكاديمي' 
+                          : '📚 You can register courses and view schedule and transcript'
+                      ) : formData.role === 'supervisor' ? (
+                        language === 'ar' 
+                          ? '✅ يمكنك الموافقة على طلبات التسجيل وعرض بيانات الطلاب' 
+                          : '✅ You can approve registration requests and view student data'
+                      ) : (
+                        language === 'ar' 
+                          ? '⚙️ لديك صلاحيات كاملة لإدارة النظام' 
+                          : '⚙️ You have full system administration privileges'
+                      )}
                     </p>
                   </div>
 

@@ -48,15 +48,43 @@ const AppContent: React.FC = () => {
     privacy: <PrivacyPage />,
     search: <SearchPage />,
     login: <LoginPage />,
-    courses: <CoursesPage />,
-    schedule: <SchedulePage />,
     signup: <SignUpPage />,
     testing: <TestingPage />,
-    reports: <ReportsPage />,
-    documents: <DocumentsPage />,
-    assistant: <AssistantPage />,
-    supervisorDashboard: <SupervisorDashboard />,
     accessAgreement: <AccessAgreementPage />,
+    
+    // Protected pages - require login
+    courses: (
+      <ProtectedRoute requireAuth={true}>
+        <CoursesPage />
+      </ProtectedRoute>
+    ),
+    schedule: (
+      <ProtectedRoute requireAuth={true}>
+        <SchedulePage />
+      </ProtectedRoute>
+    ),
+    reports: (
+      <ProtectedRoute requireAuth={true}>
+        <ReportsPage />
+      </ProtectedRoute>
+    ),
+    documents: (
+      <ProtectedRoute requireAuth={true}>
+        <DocumentsPage />
+      </ProtectedRoute>
+    ),
+    assistant: (
+      <ProtectedRoute requireAuth={true}>
+        <AssistantPage />
+      </ProtectedRoute>
+    ),
+    
+    // Supervisor-only page
+    supervisorDashboard: (
+      <ProtectedRoute requireAuth={true} allowedRoles={['supervisor', 'admin']}>
+        <SupervisorDashboard />
+      </ProtectedRoute>
+    ),
   };
 
   const handleBack = () => {

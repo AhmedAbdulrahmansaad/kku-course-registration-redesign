@@ -7,6 +7,7 @@ import { Label } from '../ui/label';
 import { GraduationCap, Lock, User, Eye, EyeOff, Mail, LogIn } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
+import { projectId, publicAnonKey } from '../../utils/supabase/info';
 
 export const LoginPage: React.FC = () => {
   const { language, t, setCurrentPage, setIsLoggedIn, setUserInfo } = useApp();
@@ -41,68 +42,110 @@ export const LoginPage: React.FC = () => {
         return;
       }
 
-      // محاكاة تسجيل دخول حقيقي
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      console.log('🔐 محاولة تسجيل الدخول:', email);
 
-      // استخراج البيانات من البريد الإلكتروني
-      const userData = localStorage.getItem('user_' + email);
-      
-      if (!userData) {
-        toast.error(
-          language === 'ar' 
-            ? 'البريد الإلكتروني أو كلمة المرور غير صحيحة' 
-            : 'Invalid email or password'
-        );
+      // تسجيل الدخول عبر Backend
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/login`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${publicAnonKey}`,
+          },
+          body: JSON.stringify({
+            email,
+            password,
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.error('❌ خطأ في تسجيل الدخول:', result.error);
+        
+        if (result.error.includes('Invalid')) {
+          toast.error(
+            language === 'ar' 
+              ? 'البريد الإلكتروني أو كلمة المرور غير صحيحة' 
+              : 'Invalid email or password'
+          );
+        } else {
+          toast.error(
+            language === 'ar' 
+              ? 'حدث خطأ أثناء تسجيل الدخول' 
+              : 'An error occurred during login'
+          );
+        }
         setLoading(false);
         return;
       }
 
-      const user = JSON.parse(userData);
-      
-      if (user.password !== password) {
-        toast.error(
-          language === 'ar' 
-            ? 'كلمة المرور غير صحيحة' 
-            : 'Incorrect password'
-        );
-        setLoading(false);
-        return;
-      }
+      console.log('✅ تسجيل الدخول نجح:', result.user);
 
       // حفظ بيانات المستخدم
       const userInfo = {
-        name: user.fullName,
-        id: user.studentId,
-        email: user.email,
-        major: user.major,
-        role: user.role || 'student'  // افتراضياً طالب
+        name: result.user.full_name,
+        id: result.user.student_id,
+        email: result.user.email,
+        major: result.user.major,
+        level: result.user.level,
+        gpa: result.user.gpa,
+        role: result.user.role || 'student',
+        access_token: result.user.access_token,
       };
       
       setUserInfo(userInfo);
       setIsLoggedIn(true);
       localStorage.setItem('userInfo', JSON.stringify(userInfo));
       localStorage.setItem('isLoggedIn', 'true');
+      localStorage.setItem('access_token', result.user.access_token);
+      
+      console.log('✅ بيانات المستخدم محفوظة:', userInfo);
       
       toast.success(
         language === 'ar' 
-          ? `🎉 مرحباً ${user.fullName}!` 
-          : `🎉 Welcome ${user.fullName}!`
+          ? `🎉 مرحباً ${result.user.full_name}!` 
+          : `🎉 Welcome ${result.user.full_name}!`
       );
 
-      // التحقق من وجود صفحة مطلوبة بعد الدخول
-      const redirectPage = localStorage.getItem('redirectAfterLogin');
-      if (redirectPage) {
-        localStorage.removeItem('redirectAfterLogin');
-        setCurrentPage(redirectPage);
-      } else {
-        setCurrentPage('home');
-      }
+      // التحويل حسب الدور
+      setTimeout(() => {
+        const redirectPage = localStorage.getItem('redirectAfterLogin');
+        
+        if (redirectPage) {
+          // إذا كان هناك صفحة مطلوبة
+          localStorage.removeItem('redirectAfterLogin');
+          setCurrentPage(redirectPage);
+        } else {
+          // التحويل التلقائي حسب الدور
+          if (userInfo.role === 'supervisor') {
+            setCurrentPage('supervisorDashboard');
+            toast.info(
+              language === 'ar' 
+                ? '📊 تم تحويلك إلى لوحة المشرف' 
+                : '📊 Redirected to Supervisor Dashboard'
+            );
+          } else if (userInfo.role === 'admin') {
+            setCurrentPage('home');
+            toast.info(
+              language === 'ar' 
+                ? '⚙️ مرحباً بك في لوحة الإدارة' 
+                : '⚙️ Welcome to Admin Dashboard'
+            );
+          } else {
+            // الطالب يذهب للصفحة الرئيسية
+            setCurrentPage('home');
+          }
+        }
+      }, 500);
     } catch (error: any) {
-      console.error('Login error:', error);
+      console.error('❌ خطأ في تسجيل الدخول:', error);
       toast.error(
         language === 'ar' 
-          ? 'حدث خطأ أثناء تسجيل الدخول' 
-          : 'An error occurred during login'
+          ? 'حدث خطأ أثناء تسجيل الدخول. يرجى المحاولة مرة أخرى' 
+          : 'An error occurred during login. Please try again'
       );
     } finally {
       setLoading(false);
@@ -249,7 +292,7 @@ export const LoginPage: React.FC = () => {
                   onClick={() => setCurrentPage('signup')}
                   className="text-kku-green dark:text-primary hover:underline font-medium"
                 >
-                  {language === 'ar' ? 'إنشاء حساب' : 'Create Account'}
+                  {language === 'ar' ? 'إنشاء حساب جديد' : 'Create New Account'}
                 </button>
               </p>
               <p className="text-xs text-muted-foreground">

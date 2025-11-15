@@ -11,13 +11,26 @@ import {
   BookOpen,
   Award,
   TrendingUp,
-  FileDown
+  FileDown,
+  File
 } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { Progress } from '../ui/progress';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
 import { toast } from 'sonner@2.0.3';
-import { jsPDF } from 'jspdf';
+import { 
+  exportAsPDF, 
+  exportAsWord, 
+  exportAsText, 
+  generateExportHeader, 
+  generateExportFooter 
+} from '../../utils/exportUtils';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../ui/dropdown-menu';
 
 export const ReportsPage: React.FC = () => {
   const { language, userInfo, registeredCourses } = useApp();
@@ -56,136 +69,90 @@ export const ReportsPage: React.FC = () => {
 
   const handleDownloadPDF = () => {
     try {
-      const pdf = new jsPDF();
-      
-      // Colors
-      const kkuGreen = [24, 74, 44];
-      const kkuGold = [212, 175, 55];
-      
-      // Header
-      pdf.setFillColor(...kkuGreen);
-      pdf.rect(0, 0, 210, 30, 'F');
-      
-      pdf.setTextColor(255, 255, 255);
-      pdf.setFontSize(22);
-      pdf.text(language === 'ar' ? 'جامعة الملك خالد' : 'King Khalid University', 105, 12, { align: 'center' });
-      pdf.setFontSize(16);
-      pdf.text(language === 'ar' ? 'التقرير الأكاديمي' : 'Academic Report', 105, 22, { align: 'center' });
-      
-      // Student Info Section
-      pdf.setTextColor(0, 0, 0);
-      pdf.setFontSize(12);
-      let yPos = 45;
-      
-      pdf.setFont(undefined, 'bold');
-      pdf.text(language === 'ar' ? 'بيانات الطالب:' : 'Student Information:', 15, yPos);
-      pdf.setFont(undefined, 'normal');
-      yPos += 10;
-      
-      pdf.setFontSize(10);
-      pdf.text(`${language === 'ar' ? 'الاسم:' : 'Name:'} ${studentData.fullName}`, 20, yPos);
-      yPos += 7;
-      pdf.text(`${language === 'ar' ? 'الرقم الجامعي:' : 'ID:'} ${studentData.studentId}`, 20, yPos);
-      yPos += 7;
-      pdf.text(`${language === 'ar' ? 'التخصص:' : 'Major:'} ${studentData.major}`, 20, yPos);
-      yPos += 7;
-      pdf.text(`${language === 'ar' ? 'المعدل التراكمي:' : 'GPA:'} ${studentData.gpa.toFixed(2)}`, 20, yPos);
-      yPos += 15;
-      
-      // Academic Progress
-      pdf.setFont(undefined, 'bold');
-      pdf.setFontSize(12);
-      pdf.text(language === 'ar' ? 'التقدم الأكاديمي:' : 'Academic Progress:', 15, yPos);
-      pdf.setFont(undefined, 'normal');
-      yPos += 10;
-      
-      const progressPercent = Math.round((studentData.completedHours / studentData.totalHours) * 100);
-      pdf.setFontSize(10);
-      pdf.text(`${language === 'ar' ? 'الساعات المكتملة:' : 'Completed Hours:'} ${studentData.completedHours} / ${studentData.totalHours}`, 20, yPos);
-      yPos += 7;
-      pdf.text(`${language === 'ar' ? 'النسبة المئوية:' : 'Percentage:'} ${progressPercent}%`, 20, yPos);
-      yPos += 15;
-      
-      // Semester GPAs Table
-      pdf.setFont(undefined, 'bold');
-      pdf.setFontSize(12);
-      pdf.text(language === 'ar' ? 'معدلات الفصول الدراسية:' : 'Semester GPAs:', 15, yPos);
-      yPos += 10;
-      
-      // Table Header
-      pdf.setFillColor(240, 240, 240);
-      pdf.rect(15, yPos, 180, 10, 'F');
-      pdf.setFontSize(9);
-      pdf.setFont(undefined, 'bold');
-      pdf.text('#', 20, yPos + 7);
-      pdf.text(language === 'ar' ? 'الفصل' : 'Semester', 35, yPos + 7);
-      pdf.text(language === 'ar' ? 'السنة' : 'Year', 90, yPos + 7);
-      pdf.text(language === 'ar' ? 'الساعات' : 'Hours', 130, yPos + 7);
-      pdf.text(language === 'ar' ? 'المعدل' : 'GPA', 165, yPos + 7);
-      yPos += 10;
-      
-      // Table Body
-      pdf.setFont(undefined, 'normal');
-      semesterGPAs.forEach((sem, index) => {
-        pdf.rect(15, yPos, 180, 10, 'D');
-        pdf.text(`${index + 1}`, 20, yPos + 7);
-        pdf.text(sem.semester, 35, yPos + 7);
-        pdf.text(sem.year, 90, yPos + 7);
-        pdf.text(`${sem.hours}`, 130, yPos + 7);
-        pdf.setTextColor(...kkuGreen);
-        pdf.setFont(undefined, 'bold');
-        pdf.text(`${sem.gpa.toFixed(2)}`, 165, yPos + 7);
-        pdf.setTextColor(0, 0, 0);
-        pdf.setFont(undefined, 'normal');
-        yPos += 10;
-      });
-      
-      yPos += 10;
-      
-      // Current Courses Table
-      if (currentCourses.length > 0 && yPos < 250) {
-        pdf.setFont(undefined, 'bold');
-        pdf.setFontSize(12);
-        pdf.text(language === 'ar' ? 'المقررات الحالية:' : 'Current Courses:', 15, yPos);
-        yPos += 10;
+      // Generate HTML content for the report
+      const htmlContent = `
+        ${generateExportHeader(
+          language === 'ar' ? 'التقرير الأكاديمي' : 'Academic Report',
+          language === 'ar' ? 'تقرير شامل عن الأداء الأكاديمي' : 'Comprehensive Academic Performance Report',
+          {
+            name: studentData.fullName,
+            id: studentData.studentId,
+            major: studentData.major,
+            level: language === 'ar' ? 'المستوى الحالي' : 'Current Level'
+          },
+          language
+        )}
         
-        // Table Header
-        pdf.setFillColor(240, 240, 240);
-        pdf.rect(15, yPos, 180, 10, 'F');
-        pdf.setFontSize(9);
-        pdf.setFont(undefined, 'bold');
-        pdf.text(language === 'ar' ? 'رمز المقرر' : 'Code', 20, yPos + 7);
-        pdf.text(language === 'ar' ? 'اسم المقرر' : 'Course Name', 55, yPos + 7);
-        pdf.text(language === 'ar' ? 'الساعات' : 'Credits', 140, yPos + 7);
-        pdf.text(language === 'ar' ? 'التقدير' : 'Grade', 165, yPos + 7);
-        yPos += 10;
+        <h3>${language === 'ar' ? 'التقدم الأكاديمي' : 'Academic Progress'}</h3>
+        <div class="info-box">
+          <p><strong>${language === 'ar' ? 'المعدل التراكمي:' : 'Cumulative GPA:'}</strong> ${studentData.gpa.toFixed(2)}</p>
+          <p><strong>${language === 'ar' ? 'الساعات المكتملة:' : 'Completed Hours:'}</strong> ${studentData.completedHours} / ${studentData.totalHours}</p>
+          <p><strong>${language === 'ar' ? 'نسبة الإنجاز:' : 'Completion:'}</strong> ${Math.round((studentData.completedHours / studentData.totalHours) * 100)}%</p>
+        </div>
         
-        // Table Body
-        pdf.setFont(undefined, 'normal');
-        pdf.setFontSize(8);
-        currentCourses.slice(0, 10).forEach((course) => {
-          if (yPos > 270) return; // Prevent overflow
-          pdf.rect(15, yPos, 180, 10, 'D');
-          pdf.text(course.code, 20, yPos + 7);
-          const courseName = course.name.length > 35 ? course.name.substring(0, 35) + '...' : course.name;
-          pdf.text(courseName, 55, yPos + 7);
-          pdf.text(`${course.credits}`, 140, yPos + 7);
-          pdf.text(course.grade, 165, yPos + 7);
-          yPos += 10;
-        });
-      }
+        <h3>${language === 'ar' ? 'معدلات الفصول الدراسية' : 'Semester GPAs'}</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>${language === 'ar' ? 'الفصل' : 'Semester'}</th>
+              <th>${language === 'ar' ? 'السنة' : 'Year'}</th>
+              <th>${language === 'ar' ? 'الساعات' : 'Hours'}</th>
+              <th>${language === 'ar' ? 'المعدل' : 'GPA'}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${semesterGPAs.map((sem, index) => `
+              <tr>
+                <td>${index + 1}</td>
+                <td>${sem.semester}</td>
+                <td>${sem.year}</td>
+                <td>${sem.hours}</td>
+                <td><strong>${sem.gpa.toFixed(2)}</strong></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        
+        ${currentCourses.length > 0 ? `
+          <h3>${language === 'ar' ? 'المقررات الحالية' : 'Current Courses'}</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>${language === 'ar' ? 'الرمز' : 'Code'}</th>
+                <th>${language === 'ar' ? 'اسم المقرر' : 'Course Name'}</th>
+                <th>${language === 'ar' ? 'الساعات' : 'Credits'}</th>
+                <th>${language === 'ar' ? 'التقدير' : 'Grade'}</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${currentCourses.map(course => `
+                <tr>
+                  <td>${course.code}</td>
+                  <td>${course.name}</td>
+                  <td>${course.credits}</td>
+                  <td>${course.grade}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        ` : ''}
+        
+        ${generateExportFooter(language)}
+      `;
       
-      // Footer
-      pdf.setFontSize(8);
-      pdf.setTextColor(100, 100, 100);
-      pdf.text(`${language === 'ar' ? 'تاريخ الطباعة:' : 'Printed:'} ${new Date().toLocaleDateString()}`, 15, 285);
-      pdf.text(language === 'ar' ? 'كلية إدارة الأعمال - قسم نظم المعلومات الإدارية' : 'College of Business - MIS Department', 105, 285, { align: 'center' });
-      
-      pdf.save(`academic_report_${new Date().getTime()}.pdf`);
-      toast.success(language === 'ar' ? '✅ تم تحميل التقرير بنجاح!' : '✅ Report downloaded successfully!');
+      exportAsPDF(
+        htmlContent,
+        language === 'ar' ? 'التقرير_الأكاديمي' : 'Academic_Report',
+        language
+      );
     } catch (error) {
       console.error('Error generating PDF:', error);
-      toast.error(language === 'ar' ? '❌ حدث خطأ أثناء إنشاء الملف' : '❌ Error generating PDF');
+      toast.error(
+        language === 'ar' 
+          ? '❌ فشل تصدير PDF' 
+          : '❌ Failed to export PDF'
+      );
     }
   };
 
@@ -330,7 +297,7 @@ export const ReportsPage: React.FC = () => {
         <TabsContent value="academic">
           <Card className="p-6">
             <h2 className="text-xl font-bold mb-6">
-              {language === 'ar' ? '��عدلات الفصول الدراسية' : 'Semester GPAs'}
+              {language === 'ar' ? 'عدلات الفصول الدراسية' : 'Semester GPAs'}
             </h2>
             <div className="space-y-4">
               {semesterGPAs.map((sem, index) => (

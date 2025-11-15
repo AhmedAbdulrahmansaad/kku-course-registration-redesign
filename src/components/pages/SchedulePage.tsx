@@ -1,12 +1,24 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../../contexts/AppContext';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
-import { Calendar, Clock, MapPin, Users, Download, Printer, BookOpen, FileText } from 'lucide-react';
+import { Calendar, Clock, MapPin, Users, Download, FileText, FileSpreadsheet, File, Printer } from 'lucide-react';
 import { Button } from '../ui/button';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
 import { toast } from 'sonner@2.0.3';
-import { jsPDF } from 'jspdf';
+import { 
+  exportAsPDF, 
+  exportAsWord, 
+  exportAsText, 
+  generateExportHeader, 
+  generateExportFooter 
+} from '../../utils/exportUtils';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../ui/dropdown-menu';
 
 interface ScheduleItem {
   day: string;
@@ -149,99 +161,108 @@ export const SchedulePage: React.FC = () => {
 
   const downloadPDF = () => {
     try {
-      const pdf = new jsPDF('landscape', 'mm', 'a4');
       const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
       
-      // Colors
-      const kkuGreen = [24, 74, 44];
-      const kkuGold = [212, 175, 55];
+      // Generate schedule table HTML
+      const scheduleHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>${language === 'ar' ? 'الوقت' : 'Time'}</th>
+              ${(language === 'ar' ? days_ar : days).map(day => `<th>${day}</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>
+            ${timeSlots.map(time => `
+              <tr>
+                <td style="font-weight: bold; background-color: #f5f5f5;">${time}</td>
+                ${days.map(day => {
+                  const scheduleItem = getScheduleForDayAndTime(day, time);
+                  if (scheduleItem) {
+                    return `
+                      <td style="background-color: #f0fdf4; padding: 8px;">
+                        <strong>${scheduleItem.course_code}</strong><br/>
+                        <span style="font-size: 0.9em;">${language === 'ar' ? scheduleItem.course_name_ar : scheduleItem.course_name}</span><br/>
+                        <span style="font-size: 0.85em; color: #666;">📍 ${scheduleItem.location}</span><br/>
+                        <span style="font-size: 0.85em; color: #666;">👨‍🏫 ${language === 'ar' ? scheduleItem.instructor_ar : scheduleItem.instructor}</span>
+                      </td>
+                    `;
+                  } else {
+                    return '<td style="background-color: #fafafa;"></td>';
+                  }
+                }).join('')}
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
       
-      // Header
-      pdf.setFillColor(...kkuGreen);
-      pdf.rect(0, 0, 297, 25, 'F');
-      
-      pdf.setTextColor(255, 255, 255);
-      pdf.setFontSize(20);
-      pdf.text(language === 'ar' ? 'جامعة الملك خالد' : 'King Khalid University', 148.5, 10, { align: 'center' });
-      pdf.setFontSize(14);
-      pdf.text(language === 'ar' ? 'الجدول الدراسي' : 'Course Schedule', 148.5, 18, { align: 'center' });
-      
-      // Student Info
-      pdf.setTextColor(0, 0, 0);
-      pdf.setFontSize(10);
-      let yPos = 35;
-      pdf.text(`${language === 'ar' ? 'الطالب:' : 'Student:'} ${userInfo.name || 'Student Name'}`, 15, yPos);
-      pdf.text(`${language === 'ar' ? 'الرقم الجامعي:' : 'ID:'} ${userInfo.id || 'Student ID'}`, 15, yPos + 5);
-      pdf.text(`${language === 'ar' ? 'الفصل الدراسي:' : 'Semester:'} 2025-2026`, 15, yPos + 10);
-      
-      yPos += 20;
-      
-      // Table
-      const tableStartY = yPos;
-      const colWidth = 44;
-      const rowHeight = 25;
-      
-      // Table Header
-      pdf.setFillColor(240, 240, 240);
-      pdf.rect(15, tableStartY, colWidth, rowHeight, 'FD');
-      pdf.setFontSize(10);
-      pdf.text(language === 'ar' ? 'الوقت' : 'Time', 15 + colWidth / 2, tableStartY + rowHeight / 2, { align: 'center' });
-      
-      const daysToUse = language === 'ar' ? days_ar : days;
-      daysToUse.forEach((day, index) => {
-        const x = 15 + colWidth + (index * colWidth);
-        pdf.setFillColor(230, 245, 235);
-        pdf.rect(x, tableStartY, colWidth, rowHeight, 'FD');
-        pdf.setFontSize(9);
-        pdf.text(day, x + colWidth / 2, tableStartY + rowHeight / 2, { align: 'center' });
-      });
-      
-      // Table Body
-      timeSlots.forEach((time, timeIndex) => {
-        const y = tableStartY + rowHeight + (timeIndex * rowHeight);
+      // Generate full HTML content
+      const htmlContent = `
+        ${generateExportHeader(
+          language === 'ar' ? 'الجدول الدراسي' : 'Course Schedule',
+          language === 'ar' ? 'الفصل الدراسي 2025-2026' : 'Semester 2025-2026',
+          {
+            name: userInfo.name || 'Student Name',
+            id: userInfo.id || 'Student ID',
+            major: userInfo.major || (language === 'ar' ? 'نظم المعلومات الإدارية' : 'Management Information Systems'),
+            level: language === 'ar' ? 'المستوى الحالي' : 'Current Level'
+          },
+          language
+        )}
         
-        // Time column
-        pdf.setFillColor(250, 250, 250);
-        pdf.rect(15, y, colWidth, rowHeight, 'FD');
-        pdf.setFontSize(8);
-        pdf.text(time, 15 + colWidth / 2, y + rowHeight / 2, { align: 'center' });
+        <div style="margin: 20px 0;">
+          <h3>${language === 'ar' ? 'الجدول الأسبوعي' : 'Weekly Schedule'}</h3>
+          ${scheduleHTML}
+        </div>
         
-        // Day columns
-        days.forEach((day, dayIndex) => {
-          const x = 15 + colWidth + (dayIndex * colWidth);
-          const scheduleItem = getScheduleForDayAndTime(day, time);
-          
-          pdf.rect(x, y, colWidth, rowHeight, 'D');
-          
-          if (scheduleItem) {
-            pdf.setFontSize(8);
-            pdf.setFont(undefined, 'bold');
-            pdf.text(scheduleItem.course_code, x + 2, y + 6);
-            
-            pdf.setFont(undefined, 'normal');
-            pdf.setFontSize(7);
-            const courseName = language === 'ar' ? scheduleItem.course_name_ar : scheduleItem.course_name;
-            const maxWidth = colWidth - 4;
-            const lines = pdf.splitTextToSize(courseName, maxWidth);
-            pdf.text(lines, x + 2, y + 11);
-            
-            pdf.setFontSize(6);
-            const location = language === 'ar' ? scheduleItem.location_ar : scheduleItem.location;
-            pdf.text(location, x + 2, y + rowHeight - 3);
-          }
-        });
-      });
+        ${scheduleData.length > 0 ? `
+          <div style="margin-top: 30px; page-break-before: always;">
+            <h3>${language === 'ar' ? 'قائمة المقررات المسجلة' : 'Registered Courses List'}</h3>
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>${language === 'ar' ? 'رمز المقرر' : 'Code'}</th>
+                  <th>${language === 'ar' ? 'اسم المقرر' : 'Course Name'}</th>
+                  <th>${language === 'ar' ? 'الأستاذ' : 'Instructor'}</th>
+                  <th>${language === 'ar' ? 'القاعة' : 'Room'}</th>
+                  <th>${language === 'ar' ? 'الأيام' : 'Days'}</th>
+                  <th>${language === 'ar' ? 'الوقت' : 'Time'}</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${scheduleData.map((item, index) => `
+                  <tr>
+                    <td>${index + 1}</td>
+                    <td><strong>${item.course_code}</strong></td>
+                    <td>${language === 'ar' ? item.course_name_ar : item.course_name}</td>
+                    <td>${language === 'ar' ? item.instructor_ar : item.instructor}</td>
+                    <td>${item.location}</td>
+                    <td>${language === 'ar' ? item.day_ar : item.day}</td>
+                    <td>${item.time}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        ` : ''}
+        
+        ${generateExportFooter(language)}
+      `;
       
-      // Footer
-      pdf.setFontSize(8);
-      pdf.setTextColor(100, 100, 100);
-      pdf.text(`${language === 'ar' ? 'تاريخ الطباعة:' : 'Printed:'} ${new Date().toLocaleDateString()}`, 15, 200);
-      
-      pdf.save(`schedule_${new Date().getTime()}.pdf`);
-      toast.success(language === 'ar' ? '✅ تم تحميل الجدول بنجاح!' : '✅ Schedule downloaded successfully!');
+      exportAsPDF(
+        htmlContent,
+        language === 'ar' ? 'الجدول_الدراسي' : 'Course_Schedule',
+        language
+      );
     } catch (error) {
       console.error('Error generating PDF:', error);
-      toast.error(language === 'ar' ? '❌ حدث خطأ أثناء إنشاء الملف' : '❌ Error generating PDF');
+      toast.error(
+        language === 'ar' 
+          ? '❌ فشل تحميل PDF' 
+          : '❌ Failed to download PDF'
+      );
     }
   };
 

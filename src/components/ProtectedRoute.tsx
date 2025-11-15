@@ -1,97 +1,116 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { useApp } from '../contexts/AppContext';
-import { Loader2, Shield } from 'lucide-react';
+import { toast } from 'sonner@2.0.3';
+import { Shield, AlertTriangle } from 'lucide-react';
+import { Card } from './ui/card';
+import { Button } from './ui/button';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requireAuth?: boolean;
-  requireAgreement?: boolean;
-  allowedRoles?: string[];
+  allowedRoles?: ('student' | 'supervisor' | 'admin')[];
 }
 
-export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
-  children,
+export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ 
+  children, 
   requireAuth = true,
-  requireAgreement = true,
-  allowedRoles = [],
+  allowedRoles = ['student', 'supervisor', 'admin']
 }) => {
-  const { setCurrentPage, isLoggedIn, userInfo, language } = useApp();
-  const [isChecking, setIsChecking] = useState(true);
-  const [isAuthorized, setIsAuthorized] = useState(false);
+  const { isLoggedIn, userInfo, language, setCurrentPage } = useApp();
 
   useEffect(() => {
-    const checkAccess = () => {
-      // 1️⃣ التحقق من قبول التعهد
-      const agreementAccepted = localStorage.getItem('agreementAccepted');
-      
-      if (requireAgreement && agreementAccepted !== 'true') {
-        console.log('❌ Access Agreement not accepted - Redirecting...');
-        setCurrentPage('accessAgreement');
-        setIsChecking(false);
-        setIsAuthorized(false);
+    // Check if authentication is required
+    if (requireAuth && !isLoggedIn) {
+      toast.error(
+        language === 'ar' 
+          ? '⚠️ يجب تسجيل الدخول أولاً' 
+          : '⚠️ Please login first'
+      );
+      setCurrentPage('login');
+      return;
+    }
+
+    // Check if user has required role
+    if (requireAuth && isLoggedIn && userInfo) {
+      if (!allowedRoles.includes(userInfo.role as any)) {
+        toast.error(
+          language === 'ar' 
+            ? '🚫 ليس لديك صلاحية للوصول لهذه الصفحة' 
+            : '🚫 You don\'t have permission to access this page'
+        );
+        setCurrentPage('home');
         return;
       }
+    }
+  }, [requireAuth, isLoggedIn, userInfo, allowedRoles, language, setCurrentPage]);
 
-      // 2️⃣ التحقق من تسجيل الدخول
-      if (requireAuth && !isLoggedIn) {
-        console.log('❌ User not logged in - Redirecting to login...');
-        localStorage.setItem('redirectAfterLogin', window.location.pathname);
-        setCurrentPage('login');
-        setIsChecking(false);
-        setIsAuthorized(false);
-        return;
-      }
-
-      // 3️⃣ التحقق من الأدوار (Role-Based Access Control)
-      if (allowedRoles.length > 0 && userInfo) {
-        const userRole = userInfo.role || 'student';
-        if (!allowedRoles.includes(userRole)) {
-          console.log(`❌ User role "${userRole}" not authorized - Required roles:`, allowedRoles);
-          setCurrentPage('home');
-          setIsChecking(false);
-          setIsAuthorized(false);
-          return;
-        }
-      }
-
-      // ✅ كل الفحوصات نجحت
-      console.log('✅ Access granted');
-      setIsAuthorized(true);
-      setIsChecking(false);
-    };
-
-    checkAccess();
-  }, [requireAuth, requireAgreement, allowedRoles, isLoggedIn, userInfo, setCurrentPage]);
-
-  // شاشة التحميل أثناء الفحص
-  if (isChecking) {
+  // If not logged in and auth required, show login prompt
+  if (requireAuth && !isLoggedIn) {
     return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center">
-        <Loader2 className="h-12 w-12 animate-spin text-kku-green mb-4" />
-        <p className="text-lg text-muted-foreground">
-          {language === 'ar' ? 'جاري التحقق من الصلاحيات...' : 'Checking permissions...'}
-        </p>
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <Card className="p-8 max-w-md w-full text-center space-y-6">
+          <div className="inline-flex p-4 bg-yellow-500/10 rounded-full">
+            <AlertTriangle className="h-12 w-12 text-yellow-500" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold mb-2">
+              {language === 'ar' ? 'تسجيل الدخول مطلوب' : 'Login Required'}
+            </h2>
+            <p className="text-muted-foreground">
+              {language === 'ar' 
+                ? 'يجب تسجيل الدخول للوصول لهذه الصفحة' 
+                : 'You need to login to access this page'}
+            </p>
+          </div>
+          <Button 
+            onClick={() => setCurrentPage('login')}
+            className="w-full bg-kku-green hover:bg-kku-green/90"
+          >
+            {language === 'ar' ? 'تسجيل الدخول' : 'Login'}
+          </Button>
+        </Card>
       </div>
     );
   }
 
-  // إذا لم يكن مصرح له
-  if (!isAuthorized) {
+  // If logged in but wrong role, show access denied
+  if (requireAuth && isLoggedIn && userInfo && !allowedRoles.includes(userInfo.role as any)) {
     return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center text-center px-4">
-        <Shield className="h-16 w-16 text-red-500 mb-4" />
-        <h2 className="text-2xl font-bold mb-2">
-          {language === 'ar' ? 'غير مصرح لك بالدخول' : 'Access Denied'}
-        </h2>
-        <p className="text-muted-foreground">
-          {language === 'ar' 
-            ? 'جاري تحويلك إلى الصفحة المناسبة...' 
-            : 'Redirecting to appropriate page...'}
-        </p>
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <Card className="p-8 max-w-md w-full text-center space-y-6">
+          <div className="inline-flex p-4 bg-red-500/10 rounded-full">
+            <Shield className="h-12 w-12 text-red-500" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold mb-2">
+              {language === 'ar' ? 'الوصول محظور' : 'Access Denied'}
+            </h2>
+            <p className="text-muted-foreground">
+              {language === 'ar' 
+                ? 'ليس لديك الصلاحية للوصول لهذه الصفحة' 
+                : 'You don\'t have permission to access this page'}
+            </p>
+            <p className="text-sm text-muted-foreground mt-2">
+              {language === 'ar' 
+                ? `الصفحة متاحة لـ: ${allowedRoles.map(r => 
+                    r === 'student' ? 'الطلاب' : 
+                    r === 'supervisor' ? 'المشرفين' : 'المدراء'
+                  ).join('، ')}` 
+                : `Available for: ${allowedRoles.join(', ')}`}
+            </p>
+          </div>
+          <Button 
+            onClick={() => setCurrentPage('home')}
+            variant="outline"
+            className="w-full"
+          >
+            {language === 'ar' ? 'العودة للرئيسية' : 'Back to Home'}
+          </Button>
+        </Card>
       </div>
     );
   }
 
-  // ✅ مصرح له - عرض المحتوى
+  // All checks passed, render children
   return <>{children}</>;
 };
