@@ -130,7 +130,7 @@ export const AssistantPage: React.FC = () => {
       
       return {
         response: language === 'ar'
-          ? `✅ تم حذف المقرر بنجاح:\n\n📚 ${courseToDelete.nameAr}\n📋 الرمز: ${courseToDelete.code}\n\nتم إزالته من جدولك الدراسي.`
+          ? `✅ تم حذف المقرر بنجا��:\n\n📚 ${courseToDelete.nameAr}\n📋 الرمز: ${courseToDelete.code}\n\nتم إزالته من جدولك الدراسي.`
           : `✅ Course deleted successfully:\n\n📚 ${courseToDelete.nameEn}\n📋 Code: ${courseToDelete.code}\n\nRemoved from your schedule.`,
         action: 'success'
       };
@@ -307,7 +307,7 @@ export const AssistantPage: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Chat Section */}
         <div className="lg:col-span-2">
-          <Card className="h-[700px] flex flex-col shadow-2xl border-2">
+          <Card className="h-[600px] md:h-[700px] flex flex-col shadow-2xl border-2">
             {/* Chat Header */}
             <div className="bg-gradient-to-r from-purple-600 to-pink-600 text-white p-6 rounded-t-lg">
               <div className="flex items-center justify-between">

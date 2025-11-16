@@ -21,28 +21,41 @@ import {
   MessageCircle,
   Rocket,
   Layers,
-  UserCog
+  UserCog,
+  GraduationCap
 } from 'lucide-react';
 
 const navItems = [
   { id: 'home', icon: Home, labelKey: 'home', public: true },
   { id: 'login', icon: LogIn, labelKey: 'login', public: true, hideWhenLoggedIn: true },
+  
+  // صفحات المدير - كل الصلاحيات
+  { id: 'adminDashboard', icon: Shield, labelKey: 'adminDashboard', requireAuth: true, allowedRoles: ['admin'] },
+  { id: 'manageCourses', icon: BookOpen, labelKey: 'manageCourses', requireAuth: true, allowedRoles: ['admin'] },
+  { id: 'manageStudents', icon: UserCog, labelKey: 'manageStudents', requireAuth: true, allowedRoles: ['admin'] },
+  { id: 'manageSupervisors', icon: GraduationCap, labelKey: 'manageSupervisors', requireAuth: true, allowedRoles: ['admin'] },
+  
+  // صفحات المشرف والمدير
+  { id: 'supervisorDashboard', icon: BarChart3, labelKey: 'supervisorDashboard', requireAuth: true, allowedRoles: ['supervisor', 'admin'] },
+  { id: 'requests', icon: FileText, labelKey: 'requests', requireAuth: true, allowedRoles: ['supervisor', 'admin'] },
+  
+  // صفحات الطلاب والجميع (المدير يملك كل الصلاحيات)
+  { id: 'studentDashboard', icon: Home, labelKey: 'studentDashboard', requireAuth: true, allowedRoles: ['student'] },
+  { id: 'curriculum', icon: Layers, labelKey: 'curriculum', requireAuth: true },
   { id: 'courses', icon: BookOpen, labelKey: 'courses', requireAuth: true },
   { id: 'schedule', icon: Calendar, labelKey: 'schedule', requireAuth: true },
   { id: 'reports', icon: BarChart3, labelKey: 'reports', requireAuth: true },
   { id: 'documents', icon: Upload, labelKey: 'documents', requireAuth: true },
   { id: 'assistant', icon: MessageCircle, labelKey: 'aiAssistant', requireAuth: true },
-  { id: 'supervisorDashboard', icon: UserCog, labelKey: 'supervisorDashboard', requireAuth: true, allowedRoles: ['supervisor', 'admin'] },
+  
+  // صفحات عامة
   { id: 'about', icon: Info, labelKey: 'about', public: true },
   { id: 'project', icon: FolderKanban, labelKey: 'project', public: true },
   { id: 'projectPhases', icon: Rocket, labelKey: 'projectPhases', public: true },
   { id: 'designMethodology', icon: Layers, labelKey: 'designMethodology', public: true },
   { id: 'testing', icon: TestTube2, labelKey: 'testing', public: true },
-  { id: 'howToRedesign', icon: Palette, labelKey: 'howToRedesign', public: true },
   { id: 'news', icon: Newspaper, labelKey: 'news', public: true },
   { id: 'contact', icon: Mail, labelKey: 'contact', public: true },
-  { id: 'responsive', icon: Monitor, labelKey: 'responsive', public: true },
-  { id: 'accessibility', icon: Accessibility, labelKey: 'accessibility', public: true },
   { id: 'privacy', icon: Shield, labelKey: 'privacy', public: true },
   { id: 'search', icon: Search, labelKey: 'search', public: true },
 ];

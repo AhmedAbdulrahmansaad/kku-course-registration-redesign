@@ -110,7 +110,7 @@ export const LoginPage: React.FC = () => {
           : `🎉 Welcome ${result.user.full_name}!`
       );
 
-      // التحويل حسب الدور
+      // التحويل التلقائي حسب الدور
       setTimeout(() => {
         const redirectPage = localStorage.getItem('redirectAfterLogin');
         
@@ -128,15 +128,15 @@ export const LoginPage: React.FC = () => {
                 : '📊 Redirected to Supervisor Dashboard'
             );
           } else if (userInfo.role === 'admin') {
-            setCurrentPage('home');
+            setCurrentPage('adminDashboard');
             toast.info(
               language === 'ar' 
                 ? '⚙️ مرحباً بك في لوحة الإدارة' 
                 : '⚙️ Welcome to Admin Dashboard'
             );
           } else {
-            // الطالب يذهب للصفحة الرئيسية
-            setCurrentPage('home');
+            // الطالب يذهب للصفحة الرئيسية أو لوحة التحكم
+            setCurrentPage('studentDashboard');
           }
         }
       }, 500);

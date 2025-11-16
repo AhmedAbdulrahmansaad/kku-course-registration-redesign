@@ -39,7 +39,7 @@ const knowledgeBase: Record<string, { ar: string; en: string }> = {
     en: '📚 To register for a course:\n\n1️⃣ Go to "Available Courses" page\n2️⃣ Click "Register Now" on the course\n3️⃣ Your request will be sent to academic supervisor (Dr. Mohammed Rashid)\n4️⃣ Status will show "Pending" until approval\n5️⃣ You will receive notification upon approval or rejection'
   },
   'delete course': {
-    ar: '🗑️ لحذف مقرر:\n\n1️⃣ اذهب إلى "المقررات المسجلة"\n2️⃣ اضغط على أيقونة سلة المهملات بجانب المقرر\n3️⃣ أكد عملية الحذف\n\n⚠️ ملاحظات مه��ة:\n• يجب أن يكون الحذف خلال فترة الحذف والإضافة\n• قد تحتاج موافقة المشرف الأكاديمي\n• تأكد من أن المقرر ليس متطلب سابق لمقرر آخر',
+    ar: '🗑️ لحذف مقرر:\n\n1️⃣ اذهب إلى "المقررات المسجلة"\n2️⃣ اضغط على أيقونة سلة المهملات بجانب المقرر\n3️⃣ أكد عملية الحذف\n\n⚠️ ملاحظات مهة:\n• يجب أن يكون الحذف خلال فترة الحذف والإضافة\n• قد تحتاج موافقة المشرف الأكاديمي\n• تأكد من أن المقرر ليس متطلب سابق لمقرر آخر',
     en: '🗑️ To delete a course:\n\n1️⃣ Go to "Registered Courses"\n2️⃣ Click the trash icon next to the course\n3️⃣ Confirm deletion\n\n⚠️ Important notes:\n• Deletion must be during add/drop period\n• May require academic supervisor approval\n• Make sure course is not a prerequisite for another course'
   },
   'كيف أحذف مقرر': {
@@ -85,7 +85,7 @@ const knowledgeBase: Record<string, { ar: string; en: string }> = {
 };
 
 export const AIAssistant: React.FC = () => {
-  const { language } = useApp();
+  const { language, currentPage } = useApp();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -119,8 +119,8 @@ export const AIAssistant: React.FC = () => {
     }
 
     return language === 'ar'
-      ? 'عذراً، لم أفهم سؤالك. يمكنني مساعدتك في:\n- إضافة وحذف المقررات\n- عرض الجدول والتقارير\n- رفع المستندات'
-      : "Sorry, I didn't understand your question. I can help you with:\n- Adding and removing courses\n- Viewing schedule and reports\n- Uploading documents";
+      ? 'عذراً، لم أفهم سؤالك. يمكنني مساعدتك في:\\n- إضافة وحذف المقررات\\n- عرض الجدول والتقارير\\n- رفع المستندات'
+      : "Sorry, I didn't understand your question. I can help you with:\\n- Adding and removing courses\\n- Viewing schedule and reports\\n- Uploading documents";
   };
 
   const handleSendMessage = () => {
@@ -152,79 +152,84 @@ export const AIAssistant: React.FC = () => {
     }, 1000);
   };
 
-  return (
-    <>
-      {/* Floating Button */}
-      <Button
-        onClick={() => setIsOpen(!isOpen)}
-        className={`fixed bottom-6 ${language === 'ar' ? 'left-6' : 'right-6'} z-50 h-14 w-14 rounded-full shadow-lg bg-kku-green hover:bg-kku-green/90`}
-      >
-        {isOpen ? <X className="h-6 w-6 text-white" /> : <MessageCircle className="h-6 w-6 text-white" />}
-      </Button>
+  // إخفاء الزر العائم إذا كان المستخدم في صفحة المساعد الذكي
+  if (currentPage === 'assistant') {
+    return null;
+  }
 
-      {/* Chat Window */}
+  return (
+    <div className="fixed bottom-4 right-4 z-50">
+      {/* نافذة المحادثة - تظهر فقط عند isOpen === true */}
       {isOpen && (
-        <Card className={`fixed bottom-24 ${language === 'ar' ? 'left-6' : 'right-6'} z-50 w-96 h-[500px] shadow-xl flex flex-col`}>
-          {/* Header */}
-          <div className="bg-kku-green text-white p-4 rounded-t-lg">
-            <div className="flex items-center gap-3">
-              <Bot className="h-6 w-6" />
+        <Card className="w-80 md:w-96 mb-4 p-4 shadow-2xl">
+          <div className="flex justify-between items-center mb-4">
+            <div className="flex items-center gap-2">
+              <div className="bg-gradient-to-r from-[#184A2C] to-purple-700 p-2 rounded-full">
+                <Bot className="h-5 w-5 text-white" />
+              </div>
               <div>
                 <h3 className="font-bold">
                   {language === 'ar' ? 'المساعد الذكي' : 'AI Assistant'}
                 </h3>
-                <p className="text-xs opacity-90">
-                  {language === 'ar' ? 'متصل الآن' : 'Online Now'}
+                <p className="text-xs text-muted-foreground">
+                  {language === 'ar' ? 'متصل الآن' : 'Online now'}
                 </p>
               </div>
             </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsOpen(false)}
+              className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
+            >
+              <X className="h-5 w-5" />
+            </Button>
           </div>
-
-          {/* Messages */}
-          <ScrollArea className="flex-1 p-4">
+          
+          <ScrollArea className="h-80 mb-4 pr-4">
             <div className="space-y-4">
               {messages.map((message) => (
                 <div
                   key={message.id}
-                  className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}
+                  className={`flex ${
+                    message.isUser ? 'justify-end' : 'justify-start'
+                  }`}
                 >
-                  <div className={`flex items-end gap-2 max-w-[80%] ${message.isUser ? 'flex-row-reverse' : 'flex-row'}`}>
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                      message.isUser ? 'bg-kku-green' : 'bg-muted'
-                    }`}>
-                      {message.isUser ? <User className="w-4 h-4 text-white" /> : <Bot className="w-4 h-4" />}
-                    </div>
-                    <div>
-                      <div
-                        className={`rounded-lg px-4 py-2 ${
-                          message.isUser
-                            ? 'bg-kku-green text-white'
-                            : 'bg-muted'
-                        }`}
-                      >
-                        <p className="text-sm whitespace-pre-line">{message.text}</p>
+                  <div className="flex items-start gap-2 max-w-[85%]">
+                    {!message.isUser && (
+                      <div className="bg-gradient-to-r from-[#184A2C] to-purple-700 p-1.5 rounded-full flex-shrink-0 mt-1">
+                        <Bot className="h-4 w-4 text-white" />
                       </div>
-                      <p className="text-[10px] text-muted-foreground mt-1 px-2">
-                        {message.timestamp.toLocaleTimeString(language === 'ar' ? 'ar-SA' : 'en-US', { 
-                          hour: '2-digit', 
-                          minute: '2-digit' 
-                        })}
-                      </p>
+                    )}
+                    <div
+                      className={`px-4 py-2 rounded-2xl whitespace-pre-line ${
+                        message.isUser
+                          ? 'bg-gradient-to-r from-[#184A2C] to-purple-700 text-white rounded-br-sm'
+                          : 'bg-gray-100 dark:bg-gray-800 rounded-bl-sm'
+                      }`}
+                    >
+                      {message.text}
                     </div>
+                    {message.isUser && (
+                      <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-1.5 rounded-full flex-shrink-0 mt-1">
+                        <User className="h-4 w-4 text-white" />
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
-              
               {isTyping && (
-                <div className="flex items-end gap-2">
-                  <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
-                    <Bot className="w-4 h-4" />
-                  </div>
-                  <div className="bg-muted rounded-lg px-4 py-2">
-                    <div className="flex gap-1">
-                      <div className="w-2 h-2 bg-kku-green rounded-full animate-bounce"></div>
-                      <div className="w-2 h-2 bg-kku-green rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                      <div className="w-2 h-2 bg-kku-green rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                <div className="flex justify-start">
+                  <div className="flex items-start gap-2">
+                    <div className="bg-gradient-to-r from-[#184A2C] to-purple-700 p-1.5 rounded-full">
+                      <Bot className="h-4 w-4 text-white" />
+                    </div>
+                    <div className="px-4 py-2 rounded-2xl bg-gray-100 dark:bg-gray-800 rounded-bl-sm">
+                      <div className="flex gap-1">
+                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -232,34 +237,36 @@ export const AIAssistant: React.FC = () => {
               <div ref={messagesEndRef} />
             </div>
           </ScrollArea>
-
-          {/* Input */}
-          <div className="p-4 border-t">
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleSendMessage();
-              }}
-              className="flex gap-2"
+          
+          <div className="flex gap-2">
+            <Input
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+              placeholder={language === 'ar' ? 'اكتب رسالتك...' : 'Type a message...'}
+              className="flex-1"
+              disabled={isTyping}
+            />
+            <Button
+              onClick={handleSendMessage}
+              disabled={isTyping || !inputValue.trim()}
+              className="bg-gradient-to-r from-[#184A2C] to-purple-700 hover:from-[#0e2818] hover:to-purple-900"
             >
-              <Input
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                placeholder={language === 'ar' ? 'اكتب سؤالك...' : 'Type your question...'}
-                className="flex-1"
-                dir={language === 'ar' ? 'rtl' : 'ltr'}
-              />
-              <Button
-                type="submit"
-                disabled={!inputValue.trim() || isTyping}
-                className="bg-kku-green hover:bg-kku-green/90"
-              >
-                <Send className="h-4 w-4" />
-              </Button>
-            </form>
+              <Send className="h-5 w-5" />
+            </Button>
           </div>
         </Card>
       )}
-    </>
+
+      {/* الزر العائم - يظهر فقط عند isOpen === false */}
+      {!isOpen && (
+        <Button
+          onClick={() => setIsOpen(true)}
+          className="h-14 w-14 rounded-full bg-gradient-to-r from-[#184A2C] to-purple-700 hover:from-[#0e2818] hover:to-purple-900 shadow-2xl hover:scale-110 transition-transform"
+        >
+          <MessageCircle className="h-6 w-6" />
+        </Button>
+      )}
+    </div>
   );
 };

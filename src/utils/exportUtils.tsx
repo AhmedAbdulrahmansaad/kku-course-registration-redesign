@@ -1,6 +1,6 @@
 /**
  * Utility functions for exporting data to various formats
- * Supports: PDF, Word (DOCX), Text (TXT)
+ * Supports: PDF, Word (DOCX), Excel (XLSX), Text (TXT)
  */
 
 import { toast } from 'sonner@2.0.3';
@@ -125,6 +125,82 @@ export const exportAsWord = (htmlContent: string, filename: string, language: 'a
       language === 'ar' 
         ? '❌ فشل تحميل ملف Word' 
         : '❌ Failed to download Word document'
+    );
+  }
+};
+
+/**
+ * Export data as Excel (.xlsx)
+ * Uses HTML table to Excel conversion
+ */
+export const exportAsExcel = (htmlContent: string, filename: string, language: 'ar' | 'en') => {
+  try {
+    // Create a simple HTML structure with table
+    const excelHtml = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta charset="utf-8">
+        <!--[if gte mso 9]>
+        <xml>
+          <x:ExcelWorkbook>
+            <x:ExcelWorksheets>
+              <x:ExcelWorksheet>
+                <x:Name>Sheet1</x:Name>
+                <x:WorksheetOptions>
+                  <x:DisplayGridlines/>
+                </x:WorksheetOptions>
+              </x:ExcelWorksheet>
+            </x:ExcelWorksheets>
+          </x:ExcelWorkbook>
+        </xml>
+        <![endif]-->
+        <style>
+          table {
+            border-collapse: collapse;
+            width: 100%;
+          }
+          th, td {
+            border: 1px solid #000;
+            padding: 8px;
+            text-align: ${language === 'ar' ? 'right' : 'left'};
+          }
+          th {
+            background-color: #184A2C;
+            color: white;
+            font-weight: bold;
+          }
+        </style>
+      </head>
+      <body dir="${language === 'ar' ? 'rtl' : 'ltr'}">
+        ${htmlContent}
+      </body>
+      </html>
+    `;
+
+    const blob = new Blob([excelHtml], {
+      type: 'application/vnd.ms-excel;charset=utf-8'
+    });
+    
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = generateFilename(filename, 'xls');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+    
+    toast.success(
+      language === 'ar' 
+        ? '✅ تم تحميل ملف Excel بنجاح' 
+        : '✅ Excel file downloaded successfully'
+    );
+  } catch (error) {
+    console.error('Error exporting Excel:', error);
+    toast.error(
+      language === 'ar' 
+        ? '❌ فشل تحميل ملف Excel' 
+        : '❌ Failed to download Excel file'
     );
   }
 };
@@ -319,28 +395,52 @@ export const generateExportHeader = (
 
   return `
     <div class="header">
-      <div class="logo">
-        <svg viewBox="0 0 100 100" style="width: 100%; height: 100%;">
-          <circle cx="50" cy="50" r="45" fill="#184A2C"/>
-          <text x="50" y="60" text-anchor="middle" fill="#D4AF37" font-size="40" font-weight="bold">K</text>
-        </svg>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <div style="width: 100px; height: 100px;">
+          <svg viewBox="0 0 100 100" style="width: 100%; height: 100%;">
+            <defs>
+              <linearGradient id="kkuGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color:#184A2C;stop-opacity:1" />
+                <stop offset="100%" style="stop-color:#0e2818;stop-opacity:1" />
+              </linearGradient>
+            </defs>
+            <circle cx="50" cy="50" r="45" fill="url(#kkuGradient)" stroke="#D4AF37" stroke-width="2"/>
+            <text x="50" y="60" text-anchor="middle" fill="#D4AF37" font-size="40" font-weight="bold" font-family="serif">K</text>
+          </svg>
+        </div>
+        <div style="flex: 1; text-align: center;">
+          <h1 style="margin: 0; font-size: 24pt;">${language === 'ar' ? 'جامعة الملك خالد' : 'King Khalid University'}</h1>
+          <p style="margin: 5px 0; color: #666; font-size: 11pt;">
+            ${language === 'ar' ? 'كلية إدارة الأعمال - قسم نظم المعلومات الإدارية' : 'College of Business - MIS Department'}
+          </p>
+        </div>
+        <div style="width: 100px; height: 100px;">
+          <svg viewBox="0 0 100 100" style="width: 100%; height: 100%;">
+            <defs>
+              <linearGradient id="visionGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color:#006C35;stop-opacity:1" />
+                <stop offset="100%" style="stop-color:#004d25;stop-opacity:1" />
+              </linearGradient>
+            </defs>
+            <rect width="100" height="100" fill="url(#visionGradient)" rx="5"/>
+            <text x="50" y="35" text-anchor="middle" fill="white" font-size="18" font-weight="bold">رؤية</text>
+            <text x="50" y="60" text-anchor="middle" fill="#D4AF37" font-size="32" font-weight="bold">2030</text>
+            <text x="50" y="80" text-anchor="middle" fill="white" font-size="10">Saudi Vision</text>
+          </svg>
+        </div>
       </div>
-      <h1>${language === 'ar' ? 'جامعة الملك خالد' : 'King Khalid University'}</h1>
-      <p style="margin: 5px 0; color: #666;">
-        ${language === 'ar' ? 'كلية إدارة الأعمال - قسم نظم المعلومات الإدارية' : 'College of Business - MIS Department'}
-      </p>
-      <h2 style="margin-top: 15px;">${title}</h2>
-      ${subtitle ? `<p style="color: #666;">${subtitle}</p>` : ''}
+      <h2 style="margin-top: 15px; color: #184A2C; text-align: center;">${title}</h2>
+      ${subtitle ? `<p style="color: #666; text-align: center; margin: 10px 0;">${subtitle}</p>` : ''}
     </div>
     
     ${studentInfo ? `
       <div class="info-box">
-        <table style="border: none;">
+        <table style="border: none; margin: 0;">
           <tr>
-            <td style="border: none; font-weight: bold;">${language === 'ar' ? 'اسم الطالب:' : 'Student Name:'}</td>
-            <td style="border: none;">${studentInfo.name || ''}</td>
-            <td style="border: none; font-weight: bold;">${language === 'ar' ? 'الرقم الجامعي:' : 'Student ID:'}</td>
-            <td style="border: none;">${studentInfo.id || ''}</td>
+            <td style="border: none; font-weight: bold; width: 20%;">${language === 'ar' ? 'اسم الطالب:' : 'Student Name:'}</td>
+            <td style="border: none; width: 30%;">${studentInfo.name || ''}</td>
+            <td style="border: none; font-weight: bold; width: 20%;">${language === 'ar' ? 'الرقم الجامعي:' : 'Student ID:'}</td>
+            <td style="border: none; width: 30%;">${studentInfo.id || ''}</td>
           </tr>
           <tr>
             <td style="border: none; font-weight: bold;">${language === 'ar' ? 'التخصص:' : 'Major:'}</td>
@@ -348,6 +448,14 @@ export const generateExportHeader = (
             <td style="border: none; font-weight: bold;">${language === 'ar' ? 'المستوى:' : 'Level:'}</td>
             <td style="border: none;">${studentInfo.level || ''}</td>
           </tr>
+          ${studentInfo.gpa !== undefined ? `
+          <tr>
+            <td style="border: none; font-weight: bold;">${language === 'ar' ? 'المعدل التراكمي:' : 'Cumulative GPA:'}</td>
+            <td style="border: none;">${studentInfo.gpa || '0.00'}</td>
+            <td style="border: none; font-weight: bold;">${language === 'ar' ? 'الساعات المكتسبة:' : 'Earned Credits:'}</td>
+            <td style="border: none;">${studentInfo.completedHours || 0} / ${studentInfo.totalHours || 132}</td>
+          </tr>
+          ` : ''}
         </table>
       </div>
     ` : ''}

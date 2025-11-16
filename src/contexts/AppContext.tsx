@@ -17,6 +17,36 @@ export interface Course {
   prerequisite?: string;
 }
 
+// ✅ إضافة نوع طلب التسجيل
+export interface RegistrationRequest {
+  id: string;
+  studentId: string;
+  studentName: string;
+  studentEmail: string;
+  courseCode: string;
+  courseName: string;
+  section: string;
+  time: string;
+  credits: number;
+  status: 'pending' | 'approved' | 'rejected';
+  requestDate: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  note?: string;
+}
+
+// ✅ إضافة نوع الإشعار
+export interface Notification {
+  id: string;
+  userId: string;
+  type: 'request' | 'approval' | 'rejection' | 'info';
+  title: string;
+  message: string;
+  requestId?: string;
+  read: boolean;
+  createdAt: string;
+}
+
 interface AppContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
@@ -30,10 +60,19 @@ interface AppContextType {
   setRegisteredCourses: (courses: Course[]) => void;
   isLoggedIn: boolean;
   setIsLoggedIn: (value: boolean) => void;
-  userInfo: { name: string; id: string; email: string; major: string; role?: string } | null;
-  setUserInfo: (info: { name: string; id: string; email: string; major: string; role?: string } | null) => void;
+  userInfo: { name: string; id: string; email: string; major: string; level?: number; gpa?: number; role?: string } | null;
+  setUserInfo: (info: { name: string; id: string; email: string; major: string; level?: number; gpa?: number; role?: string } | null) => void;
   hasAcceptedAgreement: boolean;
   setHasAcceptedAgreement: (value: boolean) => void;
+  // ✅ إضافة طلبات التسجيل والإشعارات
+  registrationRequests: RegistrationRequest[];
+  setRegistrationRequests: (requests: RegistrationRequest[]) => void;
+  addRegistrationRequest: (request: Omit<RegistrationRequest, 'id' | 'requestDate' | 'status'>) => void;
+  notifications: Notification[];
+  setNotifications: (notifications: Notification[]) => void;
+  addNotification: (notification: Omit<Notification, 'id' | 'createdAt'>) => void;
+  markNotificationAsRead: (notificationId: string) => void;
+  unreadNotificationsCount: number;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -45,12 +84,12 @@ const translations: Record<Language, Record<string, string>> = {
     about: 'عن المشروع',
     project: 'مراحل المشروع',
     projectPhases: 'مراحل التطوير',
-    designMethodology: 'منهجية لتصميم',
-    howToRedesign: 'منهجية التصميم',
+    designMethodology: 'منهجية التصميم',
+    howToRedesign: 'منهجية إعادة التصميم',
     news: 'الأخبار',
-    contact: 'اتصل بنا',
-    responsive: 'التصميم المتجاوب',
-    accessibility: 'إمكانية الوصول',
+    contact: 'تواصل معنا',
+    responsive: 'التصميم التجاوبي',
+    accessibility: 'سهولة الوصول',
     privacy: 'سياسة الخصوصية',
     search: 'البحث',
     courses: 'المقررات المتاحة',
@@ -64,6 +103,13 @@ const translations: Record<Language, Record<string, string>> = {
     signup: 'إنشاء حساب',
     aiAssistant: 'المساعد الذكي',
     supervisorDashboard: 'لوحة المشرف',
+    studentDashboard: 'لوحة التحكم',
+    requests: 'طلبات التسجيل',
+    curriculum: 'المنهج الدراسي',
+    adminDashboard: 'لوحة المدير',
+    manageCourses: 'إدارة المقررات',
+    manageStudents: 'إدارة الطلاب',
+    manageSupervisors: 'إدارة المشرفين',
     
     // Common
     back: 'رجوع',
@@ -102,6 +148,13 @@ const translations: Record<Language, Record<string, string>> = {
     signup: 'Sign Up',
     aiAssistant: 'AI Assistant',
     supervisorDashboard: 'Supervisor Dashboard',
+    studentDashboard: 'Student Dashboard',
+    requests: 'Registration Requests',
+    curriculum: 'Curriculum',
+    adminDashboard: 'Admin Dashboard',
+    manageCourses: 'Manage Courses',
+    manageStudents: 'Manage Students',
+    manageSupervisors: 'Manage Supervisors',
     
     // Common
     back: 'Back',
@@ -127,7 +180,7 @@ const allCourses: Course[] = [
   { id: '104', code: 'ISLM101', nameAr: 'المدخل إلى الثقافة الإسلامية', nameEn: 'Introduction to Islamic Culture', credits: 2, instructor: 'د. عبدالله السلمي', time: 'Thu 08:00-10:00', room: 'A201', department: 'Islamic', level: 1, capacity: 50, enrolled: 45 },
   { id: '105', code: 'CS100', nameAr: 'مقدمة في الحاسب الآلي', nameEn: 'Introduction to Computing', credits: 3, instructor: 'د. فاطمة الشهري', time: 'Mon, Wed 10:00-11:30', room: 'Lab1', department: 'CS', level: 1, capacity: 35, enrolled: 30 },
   { id: '106', code: 'MGT101', nameAr: 'مبادئ الإدارة', nameEn: 'Principles of Management', credits: 3, instructor: 'د. ماجد الشمري', time: 'Sun, Tue 13:00-14:30', room: 'C103', department: 'Business', level: 1, capacity: 40, enrolled: 33 },
-  { id: '107', code: 'UNIV100', nameAr: 'المهارات الجامعية', nameEn: 'University Skills', credits: 2, instructor: 'د. نور�� الحربي', time: 'Wed 13:00-15:00', room: 'A105', department: 'General', level: 1, capacity: 50, enrolled: 42 },
+  { id: '107', code: 'UNIV100', nameAr: 'المهارات الجامعية', nameEn: 'University Skills', credits: 2, instructor: 'د. نور الحربي', time: 'Wed 13:00-15:00', room: 'A105', department: 'General', level: 1, capacity: 50, enrolled: 42 },
 
   // ======= المستوى الثاني =======
   { id: '201', code: 'ENGL102', nameAr: 'مهارات اللغة الإنجليزية (2)', nameEn: 'English Language Skills II', credits: 3, instructor: 'Dr. Linda Brown', time: 'Sun, Tue 08:00-09:30', room: 'A103', department: 'Language', level: 2, capacity: 40, enrolled: 30, prerequisite: 'ENGL101' },
@@ -192,10 +245,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [currentPage, setCurrentPageState] = useState<string>('accessAgreement');
   const [registeredCourses, setRegisteredCourses] = useState<Course[]>([]);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
-  const [userInfo, setUserInfo] = useState<{ name: string; id: string; email: string; major: string; role?: string } | null>(null);
+  const [userInfo, setUserInfo] = useState<{ name: string; id: string; email: string; major: string; level?: number; gpa?: number; role?: string } | null>(null);
   const [hasAcceptedAgreement, setHasAcceptedAgreementState] = useState<boolean>(false);
+  // ✅ إضافة طلبات التسجيل والإشعارات
+  const [registrationRequests, setRegistrationRequests] = useState<RegistrationRequest[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
 
-  // التحقق من التعهد وتسجيل الدخول ع��د التحميل
+  // التحقق من التعهد وتسجيل الدخول عد التحميل
   useEffect(() => {
     const agreementAccepted = localStorage.getItem('agreementAccepted');
     const savedUser = localStorage.getItem('userInfo');
@@ -240,7 +296,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const setCurrentPage = (page: string) => {
-    const protectedPages = ['courses', 'schedule', 'reports', 'documents', 'assistant', 'supervisorDashboard'];
+    const protectedPages = ['courses', 'schedule', 'reports', 'documents', 'assistant', 'requests'];
     const agreementAccepted = localStorage.getItem('agreementAccepted');
 
     // التحقق من التعهد للصفحات المحمية
@@ -259,10 +315,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       // التحقق من الأدوار
-      if (page === 'supervisorDashboard') {
+      if (page === 'requests') {
         const userRole = userInfo?.role || 'student';
         if (userRole !== 'supervisor' && userRole !== 'admin') {
-          console.log('❌ Insufficient permissions for supervisor dashboard');
+          console.log('❌ Insufficient permissions for requests page');
           setCurrentPageState('home');
           return;
         }
@@ -305,6 +361,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return translations[language][key] || key;
   };
 
+  // ✅ إضافة طلبات التسجيل والإشعارات
+  const addRegistrationRequest = (request: Omit<RegistrationRequest, 'id' | 'requestDate' | 'status'>) => {
+    const newRequest: RegistrationRequest = {
+      id: Date.now().toString(),
+      requestDate: new Date().toISOString(),
+      status: 'pending',
+      ...request,
+    };
+    setRegistrationRequests([...registrationRequests, newRequest]);
+  };
+
+  const addNotification = (notification: Omit<Notification, 'id' | 'createdAt'>) => {
+    const newNotification: Notification = {
+      id: Date.now().toString(),
+      createdAt: new Date().toISOString(),
+      read: false,
+      ...notification,
+    };
+    setNotifications([...notifications, newNotification]);
+  };
+
+  const markNotificationAsRead = (notificationId: string) => {
+    setNotifications(notifications.map((n) => (n.id === notificationId ? { ...n, read: true } : n)));
+  };
+
+  const unreadNotificationsCount = notifications.filter((n) => !n.read).length;
+
   return (
     <AppContext.Provider
       value={{
@@ -324,6 +407,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setUserInfo,
         hasAcceptedAgreement,
         setHasAcceptedAgreement,
+        // ✅ إضافة طلبات التسجيل والإشعارات
+        registrationRequests,
+        setRegistrationRequests,
+        addRegistrationRequest,
+        notifications,
+        setNotifications,
+        addNotification,
+        markNotificationAsRead,
+        unreadNotificationsCount,
       }}
     >
       {children}

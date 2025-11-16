@@ -5,14 +5,12 @@ import { Button } from '../ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { 
   FileText, 
-  Download, 
+  Download,
   Printer,
   BarChart3,
   BookOpen,
   Award,
-  TrendingUp,
-  FileDown,
-  File
+  TrendingUp
 } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { Progress } from '../ui/progress';
@@ -21,16 +19,11 @@ import { toast } from 'sonner@2.0.3';
 import { 
   exportAsPDF, 
   exportAsWord, 
-  exportAsText, 
+  exportAsExcel,
   generateExportHeader, 
   generateExportFooter 
 } from '../../utils/exportUtils';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '../ui/dropdown-menu';
+import { DownloadButton } from '../DownloadButton';
 
 export const ReportsPage: React.FC = () => {
   const { language, userInfo, registeredCourses } = useApp();
@@ -46,7 +39,7 @@ export const ReportsPage: React.FC = () => {
     totalHours: 132,
   };
 
-  // حساب المعدل من المقررات المسجلة (افتراضياً 4.50 للمقرر المكتمل)
+  // حساب المعدل من المقررات المسجلة (افتراضياً 4.50 للمقرر ال��كتمل)
   const currentSemesterGPA = registeredCourses.length > 0 
     ? (registeredCourses.reduce((sum, course) => sum + 4.50, 0) / registeredCourses.length).toFixed(2)
     : '0.00';
@@ -67,7 +60,7 @@ export const ReportsPage: React.FC = () => {
     window.print();
   };
 
-  const handleDownloadPDF = () => {
+  const handleDownload = async (format: 'pdf' | 'word' | 'excel') => {
     try {
       // Generate HTML content for the report
       const htmlContent = `
@@ -78,17 +71,13 @@ export const ReportsPage: React.FC = () => {
             name: studentData.fullName,
             id: studentData.studentId,
             major: studentData.major,
-            level: language === 'ar' ? 'المستوى الحالي' : 'Current Level'
+            level: language === 'ar' ? 'المستوى الحالي' : 'Current Level',
+            gpa: studentData.gpa,
+            completedHours: studentData.completedHours,
+            totalHours: studentData.totalHours
           },
           language
         )}
-        
-        <h3>${language === 'ar' ? 'التقدم الأكاديمي' : 'Academic Progress'}</h3>
-        <div class="info-box">
-          <p><strong>${language === 'ar' ? 'المعدل التراكمي:' : 'Cumulative GPA:'}</strong> ${studentData.gpa.toFixed(2)}</p>
-          <p><strong>${language === 'ar' ? 'الساعات المكتملة:' : 'Completed Hours:'}</strong> ${studentData.completedHours} / ${studentData.totalHours}</p>
-          <p><strong>${language === 'ar' ? 'نسبة الإنجاز:' : 'Completion:'}</strong> ${Math.round((studentData.completedHours / studentData.totalHours) * 100)}%</p>
-        </div>
         
         <h3>${language === 'ar' ? 'معدلات الفصول الدراسية' : 'Semester GPAs'}</h3>
         <table>
@@ -115,7 +104,7 @@ export const ReportsPage: React.FC = () => {
         </table>
         
         ${currentCourses.length > 0 ? `
-          <h3>${language === 'ar' ? 'المقررات الحالية' : 'Current Courses'}</h3>
+          <h3 style="margin-top: 30px;">${language === 'ar' ? 'المقررات الحالية' : 'Current Courses'}</h3>
           <table>
             <thead>
               <tr>
@@ -141,17 +130,21 @@ export const ReportsPage: React.FC = () => {
         ${generateExportFooter(language)}
       `;
       
-      exportAsPDF(
-        htmlContent,
-        language === 'ar' ? 'التقرير_الأكاديمي' : 'Academic_Report',
-        language
-      );
+      const filename = language === 'ar' ? 'التقرير_الأكاديمي' : 'Academic_Report';
+      
+      if (format === 'pdf') {
+        exportAsPDF(htmlContent, filename, language);
+      } else if (format === 'word') {
+        exportAsWord(htmlContent, filename, language);
+      } else if (format === 'excel') {
+        exportAsExcel(htmlContent, filename, language);
+      }
     } catch (error) {
-      console.error('Error generating PDF:', error);
+      console.error('Error generating file:', error);
       toast.error(
         language === 'ar' 
-          ? '❌ فشل تصدير PDF' 
-          : '❌ Failed to export PDF'
+          ? '❌ فشل تحميل الملف' 
+          : '❌ Failed to download file'
       );
     }
   };
@@ -187,13 +180,12 @@ export const ReportsPage: React.FC = () => {
           </p>
 
           <div className="flex flex-wrap justify-center gap-3">
-            <Button
-              onClick={handleDownloadPDF}
-              className="bg-white text-emerald-600 hover:bg-white/90 gap-2"
-            >
-              <Download className="w-4 h-4" />
-              {language === 'ar' ? 'تحميل PDF' : 'Download PDF'}
-            </Button>
+            <DownloadButton
+              onDownload={handleDownload}
+              language={language}
+              variant="default"
+              className="bg-white text-emerald-600 hover:bg-white/90"
+            />
             <Button
               onClick={handlePrint}
               variant="outline"

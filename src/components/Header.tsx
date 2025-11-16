@@ -1,12 +1,34 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
-import { Moon, Sun, Globe, LogOut, User } from 'lucide-react';
+import { Moon, Sun, Globe, LogOut, User, Bell } from 'lucide-react';
 import { Button } from './ui/button';
 import { KKULogoSVG } from './KKULogoSVG';
 import { toast } from 'sonner@2.0.3';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from './ui/popover';
+import { Badge } from './ui/badge';
+import { ScrollArea } from './ui/scroll-area';
 
 export const Header: React.FC = () => {
-  const { language, setLanguage, theme, setTheme, isLoggedIn, userInfo, setIsLoggedIn, setUserInfo, setCurrentPage } = useApp();
+  const { 
+    language, 
+    setLanguage, 
+    theme, 
+    setTheme, 
+    isLoggedIn, 
+    userInfo, 
+    setIsLoggedIn, 
+    setUserInfo, 
+    setCurrentPage,
+    notifications,
+    unreadNotificationsCount,
+    markNotificationAsRead
+  } = useApp();
+
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   const handleLogout = () => {
     // Clear all user data
@@ -90,6 +112,70 @@ export const Header: React.FC = () => {
                 <Sun className="h-4 w-4" />
               )}
             </Button>
+
+            {/* Notifications */}
+            {isLoggedIn && (
+              <Popover open={notificationsOpen} onOpenChange={setNotificationsOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="relative text-white hover:bg-white/20 hover:text-white border border-white/20"
+                    title={language === 'ar' ? 'الإشعارات' : 'Notifications'}
+                  >
+                    <Bell className="h-4 w-4" />
+                    {unreadNotificationsCount > 0 && (
+                      <Badge
+                        className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 bg-red-500 text-xs"
+                      >
+                        {unreadNotificationsCount}
+                      </Badge>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80">
+                  <div className="flex justify-between items-center p-3">
+                    <h4 className="text-sm font-medium">
+                      {language === 'ar' ? 'الإشعارات' : 'Notifications'}
+                    </h4>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-xs"
+                      onClick={() => {
+                        notifications.forEach((notification) => {
+                          markNotificationAsRead(notification.id);
+                        });
+                      }}
+                    >
+                      {language === 'ar' ? 'تحديد الكل كمقروء' : 'Mark all as read'}
+                    </Button>
+                  </div>
+                  <ScrollArea className="h-80">
+                    <div className="p-3">
+                      {notifications.map((notification) => (
+                        <div
+                          key={notification.id}
+                          className={`flex items-center ${
+                            !notification.read ? 'bg-gray-500/10' : ''
+                          } p-3 rounded-lg mb-2`}
+                        >
+                          <Bell className="h-4 w-4 mr-2" />
+                          <div className="flex-1">
+                            <p className="text-sm font-medium">
+                              {notification.title}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {notification.message}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </PopoverContent>
+              </Popover>
+            )}
 
             {/* Logout Button (if logged in) */}
             {isLoggedIn && (

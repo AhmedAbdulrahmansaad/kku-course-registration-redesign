@@ -154,7 +154,7 @@ body[dir="rtl"] {
   }
 }
 
-@keyframes pulse-soft {
+@keyframes pulse {
   0%, 100% {
     opacity: 1;
   }
@@ -163,141 +163,55 @@ body[dir="rtl"] {
   }
 }
 
-@keyframes bounce-slow {
+@keyframes bounce {
   0%, 100% {
     transform: translateY(0);
   }
   50% {
-    transform: translateY(-5px);
+    transform: translateY(-10px);
   }
 }
 
-@keyframes glow {
-  0%, 100% {
-    box-shadow: 0 0 10px rgba(212, 175, 55, 0.3);
-  }
-  50% {
-    box-shadow: 0 0 20px rgba(212, 175, 55, 0.6);
-  }
-}
-
-@keyframes shimmer {
-  0% {
-    transform: translateX(-100%);
-  }
-  100% {
-    transform: translateX(100%);
-  }
-}
-
-@keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
-  20%, 40%, 60%, 80% { transform: translateX(5px); }
-}
-
-@keyframes device-morph {
-  0% {
-    transform: scale(0.95);
-    opacity: 0.8;
-  }
-  50% {
-    transform: scale(1.02);
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
-
+/* Animation Classes */
 .animate-fade-in {
-  animation: fadeIn 0.5s ease-out forwards;
+  animation: fadeIn 0.5s ease-in-out;
 }
 
 .animate-fade-up {
-  animation: fadeUp 0.6s ease-out forwards;
+  animation: fadeUp 0.6s ease-out;
 }
 
 .animate-slide-in-left {
-  animation: slideInLeft 0.5s ease-out forwards;
+  animation: slideInLeft 0.6s ease-out;
 }
 
 .animate-slide-in-right {
-  animation: slideInRight 0.5s ease-out forwards;
+  animation: slideInRight 0.6s ease-out;
 }
 
 .animate-scale-in {
-  animation: scaleIn 0.4s ease-out forwards;
+  animation: scaleIn 0.5s ease-out;
 }
 
 .animate-float {
   animation: float 3s ease-in-out infinite;
 }
 
-.animate-pulse-soft {
-  animation: pulse-soft 2s ease-in-out infinite;
+.animate-pulse {
+  animation: pulse 2s ease-in-out infinite;
 }
 
-.animate-bounce-slow {
-  animation: bounce-slow 2s ease-in-out infinite;
+.animate-bounce {
+  animation: bounce 2s ease-in-out infinite;
 }
 
-.animate-glow {
-  animation: glow 2s ease-in-out infinite;
+/* Smooth Transitions */
+.transition-smooth {
+  transition: all 0.3s ease-in-out;
 }
 
-.animate-shimmer {
-  animation: shimmer 2s infinite;
-}
-
-.animate-shake {
-  animation: shake 0.5s ease-in-out;
-}
-
-/* Smooth scrolling */
-html {
-  scroll-behavior: smooth;
-}
-
-/* Custom Scrollbar */
-::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-
-::-webkit-scrollbar-track {
-  background: var(--color-muted);
-  border-radius: 5px;
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--color-primary);
-  border-radius: 5px;
-  transition: background 0.3s ease;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: var(--color-kku-gold);
-}
-
-/* Gradient Text */
-.gradient-text {
-  background: linear-gradient(135deg, var(--color-kku-green) 0%, var(--color-kku-gold) 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-/* Glass Effect */
-.glass-effect {
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.dark .glass-effect {
-  background: rgba(30, 41, 59, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+.transition-colors {
+  transition: color 0.3s ease, background-color 0.3s ease, border-color 0.3s ease;
 }
 
 /* Hover Effects */
@@ -306,75 +220,53 @@ html {
 }
 
 .hover-lift:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 10px 30px rgba(24, 74, 44, 0.2);
+  transform: translateY(-4px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
 }
 
 .dark .hover-lift:hover {
-  box-shadow: 0 10px 30px rgba(34, 197, 94, 0.2);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
 }
 
-/* Pattern Background for Cards */
-.pattern-bg {
-  background-image: 
-    repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(24, 74, 44, 0.03) 10px, rgba(24, 74, 44, 0.03) 20px);
+.hover-glow {
+  transition: box-shadow 0.3s ease;
 }
 
-.dark .pattern-bg {
-  background-image: 
-    repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(34, 197, 94, 0.05) 10px, rgba(34, 197, 94, 0.05) 20px);
+.hover-glow:hover {
+  box-shadow: 0 0 20px rgba(24, 74, 44, 0.3);
 }
 
-/* Loading Spinner */
-.spinner {
-  border: 3px solid var(--color-muted);
-  border-top-color: var(--color-primary);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+.dark .hover-glow:hover {
+  box-shadow: 0 0 20px rgba(34, 197, 94, 0.3);
 }
 
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* Button Shine Effect */
-.btn-shine {
-  position: relative;
-  overflow: hidden;
-}
-
-.btn-shine::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-  transition: left 0.5s;
-}
-
-.btn-shine:hover::after {
-  left: 100%;
-}
-
-/* Responsive Typography */
-@media (max-width: 768px) {
-  html {
+/* Responsive Utilities */
+@media (max-width: 640px) {
+  body {
     font-size: 14px;
   }
+  
+  h1 {
+    font-size: 1.75rem !important;
+  }
+  
+  h2 {
+    font-size: 1.5rem !important;
+  }
+  
+  h3 {
+    font-size: 1.25rem !important;
+  }
 }
 
-@media (min-width: 769px) and (max-width: 1024px) {
-  html {
+@media (min-width: 641px) and (max-width: 1024px) {
+  body {
     font-size: 15px;
   }
 }
 
 @media (min-width: 1025px) {
-  html {
+  body {
     font-size: 16px;
   }
 }

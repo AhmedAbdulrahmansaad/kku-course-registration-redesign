@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useApp } from '../../contexts/AppContext';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { KKULogoSVG } from '../KKULogoSVG';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
+import { projectId, publicAnonKey } from '../../utils/supabase/info';
 
 const features = [
   { icon: CheckCircle, titleAr: 'سهل الاستخدام', titleEn: 'Easy to Use', descAr: 'واجهة بسيطة وواضحة', descEn: 'Simple and clear interface' },
@@ -41,6 +42,46 @@ const quickActions = [
 
 export const HomePage: React.FC = () => {
   const { language, setCurrentPage } = useApp();
+
+  // تهيئة المقررات تلقائياً عند تحميل الصفحة الرئيسية
+  useEffect(() => {
+    const initCourses = async () => {
+      try {
+        // التحقق إذا كانت المقررات مهيأة مسبقاً
+        const coursesInitialized = localStorage.getItem('coursesInitialized');
+        if (coursesInitialized === 'true') {
+          console.log('✅ Courses already initialized');
+          return;
+        }
+
+        console.log('📚 Initializing courses database...');
+        
+        const response = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/init-courses`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${publicAnonKey}`,
+            },
+          }
+        );
+
+        const result = await response.json();
+        
+        if (response.ok) {
+          console.log('✅ Courses initialized:', result);
+          localStorage.setItem('coursesInitialized', 'true');
+        } else {
+          console.warn('⚠️ Failed to initialize courses:', result.error);
+        }
+      } catch (error) {
+        console.error('❌ Error initializing courses:', error);
+      }
+    };
+
+    initCourses();
+  }, []);
 
   return (
     <div className="space-y-12">

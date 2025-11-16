@@ -2,23 +2,18 @@ import React, { useState } from 'react';
 import { useApp } from '../../contexts/AppContext';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
-import { Calendar, Clock, MapPin, Users, Download, FileText, FileSpreadsheet, File, Printer } from 'lucide-react';
+import { Calendar, Clock, MapPin, Users, Printer } from 'lucide-react';
 import { Button } from '../ui/button';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
 import { toast } from 'sonner@2.0.3';
 import { 
   exportAsPDF, 
   exportAsWord, 
-  exportAsText, 
+  exportAsExcel,
   generateExportHeader, 
   generateExportFooter 
 } from '../../utils/exportUtils';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '../ui/dropdown-menu';
+import { DownloadButton } from '../DownloadButton';
 
 interface ScheduleItem {
   day: string;
@@ -266,6 +261,120 @@ export const SchedulePage: React.FC = () => {
     }
   };
 
+  const handleDownload = async (format: 'pdf' | 'word' | 'excel') => {
+    try {
+      const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+      
+      // Generate schedule table HTML
+      const scheduleHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>${language === 'ar' ? 'الوقت' : 'Time'}</th>
+              ${(language === 'ar' ? days_ar : days).map(day => `<th>${day}</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>
+            ${timeSlots.map(time => `
+              <tr>
+                <td style="font-weight: bold; background-color: #f5f5f5;">${time}</td>
+                ${days.map(day => {
+                  const scheduleItem = getScheduleForDayAndTime(day, time);
+                  if (scheduleItem) {
+                    return `
+                      <td style="background-color: #f0fdf4; padding: 8px;">
+                        <strong>${scheduleItem.course_code}</strong><br/>
+                        <span style="font-size: 0.9em;">${language === 'ar' ? scheduleItem.course_name_ar : scheduleItem.course_name}</span><br/>
+                        <span style="font-size: 0.85em; color: #666;">📍 ${scheduleItem.location}</span><br/>
+                        <span style="font-size: 0.85em; color: #666;">👨‍🏫 ${language === 'ar' ? scheduleItem.instructor_ar : scheduleItem.instructor}</span>
+                      </td>
+                    `;
+                  } else {
+                    return '<td style="background-color: #fafafa;"></td>';
+                  }
+                }).join('')}
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+      
+      // Generate course list HTML
+      const courseListHTML = scheduleData.length > 0 ? `
+        <div style="margin-top: 30px;">
+          <h3>${language === 'ar' ? 'قائمة المقررات المسجلة' : 'Registered Courses List'}</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>${language === 'ar' ? 'رمز المقرر' : 'Code'}</th>
+                <th>${language === 'ar' ? 'اسم المقرر' : 'Course Name'}</th>
+                <th>${language === 'ar' ? 'الأستاذ' : 'Instructor'}</th>
+                <th>${language === 'ar' ? 'القاعة' : 'Room'}</th>
+                <th>${language === 'ar' ? 'الأيام' : 'Days'}</th>
+                <th>${language === 'ar' ? 'الوقت' : 'Time'}</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${scheduleData.map((item, index) => `
+                <tr>
+                  <td>${index + 1}</td>
+                  <td><strong>${item.course_code}</strong></td>
+                  <td>${language === 'ar' ? item.course_name_ar : item.course_name}</td>
+                  <td>${language === 'ar' ? item.instructor_ar : item.instructor}</td>
+                  <td>${item.location}</td>
+                  <td>${language === 'ar' ? item.day_ar : item.day}</td>
+                  <td>${item.time}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      ` : '';
+      
+      // Generate full HTML content
+      const htmlContent = `
+        ${generateExportHeader(
+          language === 'ar' ? 'الجدول الدراسي' : 'Course Schedule',
+          language === 'ar' ? 'الفصل الدراسي 2025-2026' : 'Semester 2025-2026',
+          {
+            name: userInfo.name || 'Student Name',
+            id: userInfo.id || 'Student ID',
+            major: userInfo.major || (language === 'ar' ? 'نظم المعلومات الإدارية' : 'Management Information Systems'),
+            level: language === 'ar' ? 'المستوى الحالي' : 'Current Level'
+          },
+          language
+        )}
+        
+        <div style="margin: 20px 0;">
+          <h3>${language === 'ar' ? 'الجدول الأسبوعي' : 'Weekly Schedule'}</h3>
+          ${scheduleHTML}
+        </div>
+        
+        ${courseListHTML}
+        
+        ${generateExportFooter(language)}
+      `;
+      
+      const filename = language === 'ar' ? 'الجدول_الدراسي' : 'Course_Schedule';
+      
+      if (format === 'pdf') {
+        exportAsPDF(htmlContent, filename, language);
+      } else if (format === 'word') {
+        exportAsWord(htmlContent, filename, language);
+      } else if (format === 'excel') {
+        exportAsExcel(htmlContent, filename, language);
+      }
+    } catch (error) {
+      console.error('Error generating file:', error);
+      toast.error(
+        language === 'ar' 
+          ? '❌ فشل تحميل الملف' 
+          : '❌ Failed to download file'
+      );
+    }
+  };
+
   const handlePrint = () => {
     window.print();
   };
@@ -288,14 +397,12 @@ export const SchedulePage: React.FC = () => {
         
         {/* Action Buttons */}
         <div className="flex flex-wrap justify-center gap-3">
-          <Button 
-            variant="outline" 
-            className="gap-2 border-kku-green text-kku-green hover:bg-kku-green/10 dark:border-primary dark:text-primary"
-            onClick={downloadPDF}
-          >
-            <Download className="h-4 w-4" />
-            {language === 'ar' ? 'تحميل PDF' : 'Download PDF'}
-          </Button>
+          <DownloadButton
+            onDownload={handleDownload}
+            language={language}
+            variant="outline"
+            className="border-kku-green text-kku-green hover:bg-kku-green/10 dark:border-primary dark:text-primary"
+          />
           <Button 
             variant="outline"
             className="gap-2 border-kku-gold text-kku-gold hover:bg-kku-gold/10"
