@@ -28,12 +28,14 @@ export const RouteGuard: React.FC<RouteGuardProps> = ({
       if (redirectTo) {
         setCurrentPage(redirectTo);
       }
+      return; // إيقاف التنفيذ هنا
     }
 
     // إذا كانت الصفحة تتطلب قبول التعهد والمستخدم لم يقبله
     if (requirePledge && !hasPledgeAccepted) {
       console.warn('🚫 Access denied: Pledge not accepted');
       setCurrentPage('pledge');
+      return; // إيقاف التنفيذ هنا
     }
 
     // إذا كانت الصفحة لديها أدوار محددة والمستخدم ليس لديه الصلاحية
@@ -47,13 +49,13 @@ export const RouteGuard: React.FC<RouteGuardProps> = ({
         } else if (userRole === 'supervisor') {
           setCurrentPage('supervisorDashboard');
         } else if (userRole === 'admin') {
-          setCurrentPage('home');
+          setCurrentPage('adminDashboard');
         } else {
           setCurrentPage('home');
         }
       }
     }
-  }, [isLoggedIn, userInfo, hasPledgeAccepted, requireAuth, requirePledge, allowedRoles]);
+  }, [isLoggedIn, userInfo, hasPledgeAccepted, requireAuth, requirePledge, allowedRoles, setCurrentPage, redirectTo]);
 
   // إذا كانت الصفحة تتطلب تسجيل دخول والمستخدم غير مسجل
   if (requireAuth && !isLoggedIn) {
@@ -153,6 +155,8 @@ export const RouteGuard: React.FC<RouteGuardProps> = ({
                   setCurrentPage('studentDashboard');
                 } else if (userRole === 'supervisor') {
                   setCurrentPage('supervisorDashboard');
+                } else if (userRole === 'admin') {
+                  setCurrentPage('adminDashboard');
                 } else {
                   setCurrentPage('home');
                 }

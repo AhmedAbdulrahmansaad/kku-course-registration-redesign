@@ -4,6 +4,12 @@
  * College of Business Administration
  */
 
+export interface ScheduleTime {
+  day: string;        // e.g., 'Sunday', 'Monday'
+  day_ar: string;     // e.g., 'الأحد', 'الاثنين'
+  time: string;       // e.g., '08:00-09:30'
+}
+
 export interface Course {
   course_id: string;
   code: string;
@@ -17,6 +23,16 @@ export interface Course {
   prerequisites?: string[];
   semester?: string;
   instructor?: string;
+  instructor_ar?: string;
+  // معلومات الجدول الدراسي
+  schedule?: ScheduleTime[];  // قد يكون للمقرر أكثر من موعد في الأسبوع
+  building?: string;           // e.g., 'Building A', 'المبنى أ'
+  building_ar?: string;
+  room?: string;               // e.g., 'Room 201', 'قاعة 201'
+  room_ar?: string;
+  college?: string;            // e.g., 'Business Administration'
+  college_ar?: string;         // e.g., 'إدارة الأعمال'
+  color?: string;              // لون المقرر في الجدول
 }
 
 /**
@@ -242,7 +258,7 @@ export const LEVEL_3_COURSES: Course[] = [
     credit_hours: 3,
     level: 3,
     department: 'MIS',
-    description_ar: 'أساسيات البرمجة، الخوارزميات، هياكل البيانات، وتطوير تطبيقات الأعمال.',
+    description_ar: 'أساسيات البرمجة، ��لخوارزميات، هياكل البيانات، وتطوير تطبيقات الأعمال.',
     description_en: 'Programming fundamentals, algorithms, data structures, and business application development.',
     prerequisites: ['CIS101'],
     semester: 'Fall/Spring',

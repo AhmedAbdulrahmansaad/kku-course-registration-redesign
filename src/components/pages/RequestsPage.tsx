@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../contexts/AppContext';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
@@ -19,7 +19,8 @@ import {
   TrendingUp,
   Users,
   CheckCheck,
-  X as XIcon
+  X as XIcon,
+  RefreshCw
 } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import {
@@ -38,33 +39,104 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../ui/dialog';
+import { projectId, publicAnonKey } from '../../utils/supabase/info';
+
+interface RegistrationRequest {
+  request_id: string;
+  registration_id: string;
+  student_id: string;
+  course_id: string;
+  status: 'pending' | 'approved' | 'rejected';
+  created_at: string;
+  processed_at?: string;
+  processed_by?: string;
+  reason?: string;
+  // Additional data from joins
+  student?: {
+    full_name: string;
+    email: string;
+    level: number;
+    major: string;
+  };
+  course?: {
+    code: string;
+    name_ar: string;
+    name_en: string;
+    credit_hours: number;
+    level: number;
+  };
+}
 
 export const RequestsPage: React.FC = () => {
   const { 
     language, 
-    registrationRequests, 
-    setRegistrationRequests,
-    addNotification,
     userInfo 
   } = useApp();
 
+  const [requests, setRequests] = useState<RegistrationRequest[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
-  const [selectedRequest, setSelectedRequest] = useState<typeof registrationRequests[0] | null>(null);
+  const [selectedRequest, setSelectedRequest] = useState<RegistrationRequest | null>(null);
   const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
   const [reviewNote, setReviewNote] = useState('');
   const [reviewAction, setReviewAction] = useState<'approve' | 'reject'>('approve');
+  const [processing, setProcessing] = useState(false);
+
+  useEffect(() => {
+    fetchRequests();
+  }, []);
+
+  const fetchRequests = async () => {
+    try {
+      setLoading(true);
+      console.log('📋 Fetching registration requests...');
+
+      const accessToken = localStorage.getItem('access_token');
+      if (!accessToken) {
+        toast.error(language === 'ar' ? 'يرجى تسجيل الدخول' : 'Please login');
+        return;
+      }
+
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/admin/registration-requests`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      const result = await response.json();
+      console.log('📋 Requests response:', result);
+
+      if (response.ok) {
+        setRequests(result.requests || []);
+        console.log('✅ Loaded', result.requests?.length || 0, 'requests');
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error: any) {
+      console.error('Error fetching requests:', error);
+      toast.error(
+        language === 'ar' ? 'فشل في تحميل الطلبات' : 'Failed to load requests'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // فلترة الطلبات
-  const filteredRequests = registrationRequests.filter(request => {
+  const filteredRequests = requests.filter(request => {
     // تجاهل القيم الفارغة أو null
     if (!request) return false;
     
     const matchesSearch =
-      request.studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      request.studentId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      request.courseCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      request.courseName.toLowerCase().includes(searchTerm.toLowerCase());
+      request.student?.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      request.student?.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      request.course?.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      request.course?.name_ar.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      request.course?.name_en.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = statusFilter === 'all' || request.status === statusFilter;
     
@@ -73,14 +145,14 @@ export const RequestsPage: React.FC = () => {
 
   // إحصائيات
   const stats = {
-    total: registrationRequests.filter(r => r != null).length,
-    pending: registrationRequests.filter(r => r && r.status === 'pending').length,
-    approved: registrationRequests.filter(r => r && r.status === 'approved').length,
-    rejected: registrationRequests.filter(r => r && r.status === 'rejected').length,
+    total: requests.filter(r => r != null).length,
+    pending: requests.filter(r => r && r.status === 'pending').length,
+    approved: requests.filter(r => r && r.status === 'approved').length,
+    rejected: requests.filter(r => r && r.status === 'rejected').length,
   };
 
   // معالجة المراجعة
-  const handleReview = (request: typeof registrationRequests[0], action: 'approve' | 'reject') => {
+  const handleReview = (request: RegistrationRequest, action: 'approve' | 'reject') => {
     setSelectedRequest(request);
     setReviewAction(action);
     setReviewNote('');
@@ -88,53 +160,80 @@ export const RequestsPage: React.FC = () => {
   };
 
   // تأكيد المراجعة
-  const confirmReview = () => {
+  const confirmReview = async () => {
     if (!selectedRequest || !userInfo) return;
 
-    const updatedRequests = registrationRequests.map(request => {
-      if (request.id === selectedRequest.id) {
-        return {
-          ...request,
-          status: reviewAction === 'approve' ? 'approved' as const : 'rejected' as const,
-          reviewedBy: userInfo.name,
-          reviewedAt: new Date().toISOString(),
-          note: reviewNote || undefined,
-        };
+    setProcessing(true);
+
+    try {
+      const accessToken = localStorage.getItem('access_token');
+      if (!accessToken) {
+        toast.error(language === 'ar' ? 'يرجى تسجيل الدخول' : 'Please login');
+        return;
       }
-      return request;
-    });
 
-    setRegistrationRequests(updatedRequests);
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/admin/process-registration-request`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            request_id: selectedRequest.request_id,
+            action: reviewAction,
+            note: reviewNote || undefined,
+          }),
+        }
+      );
 
-    // إرسال إشعار للطالب
-    addNotification({
-      userId: selectedRequest.studentId,
-      type: reviewAction === 'approve' ? 'approval' : 'rejection',
-      title: language === 'ar' 
-        ? (reviewAction === 'approve' ? '✅ تمت الموافقة على طلبك' : '❌ تم رفض طلبك')
-        : (reviewAction === 'approve' ? '✅ Request Approved' : '❌ Request Rejected'),
-      message: language === 'ar'
-        ? `${reviewAction === 'approve' ? 'تمت الموافقة على' : 'تم رفض'} طلب تسجيل ${selectedRequest.courseName}`
-        : `Registration request for ${selectedRequest.courseName} has been ${reviewAction === 'approve' ? 'approved' : 'rejected'}`,
-      requestId: selectedRequest.id,
-      read: false,
-    });
+      const result = await response.json();
+      console.log('📋 Process request response:', result);
 
-    toast.success(
-      language === 'ar'
-        ? `✅ تم ${reviewAction === 'approve' ? 'قبول' : 'رفض'} طلب ${selectedRequest.studentName}`
-        : `✅ Request ${reviewAction === 'approve' ? 'approved' : 'rejected'} for ${selectedRequest.studentName}`,
-      {
-        duration: 5000,
-        description: language === 'ar'
-          ? 'تم إشعار الطالب بالقرار'
-          : 'Student has been notified of the decision'
+      if (response.ok) {
+        const updatedRequests = requests.map(request => {
+          if (request.request_id === selectedRequest.request_id) {
+            return {
+              ...request,
+              status: reviewAction === 'approve' ? 'approved' as const : 'rejected' as const,
+              processed_by: userInfo.name,
+              processed_at: new Date().toISOString(),
+              reason: reviewNote || undefined,
+            };
+          }
+          return request;
+        });
+
+        setRequests(updatedRequests);
+
+        // إشعار نجاح
+        toast.success(
+          language === 'ar'
+            ? `✅ تم ${reviewAction === 'approve' ? 'قبول' : 'رفض'} طلب ${selectedRequest.student?.full_name}`
+            : `✅ Request ${reviewAction === 'approve' ? 'approved' : 'rejected'} for ${selectedRequest.student?.full_name}`,
+          {
+            duration: 5000,
+            description: language === 'ar'
+              ? 'تم إشعار الطالب بالقرار'
+              : 'Student has been notified of the decision'
+          }
+        );
+
+        setIsReviewDialogOpen(false);
+        setSelectedRequest(null);
+        setReviewNote('');
+      } else {
+        throw new Error(result.error);
       }
-    );
-
-    setIsReviewDialogOpen(false);
-    setSelectedRequest(null);
-    setReviewNote('');
+    } catch (error: any) {
+      console.error('Error processing request:', error);
+      toast.error(
+        language === 'ar' ? 'فشل في معالجة الطلب' : 'Failed to process request'
+      );
+    } finally {
+      setProcessing(false);
+    }
   };
 
   return (
@@ -242,8 +341,8 @@ export const RequestsPage: React.FC = () => {
             <FileText className="h-4 w-4" />
             <span className="font-medium">
               {language === 'ar'
-                ? `عرض ${filteredRequests.length} من ${registrationRequests.length} طلب`
-                : `Showing ${filteredRequests.length} of ${registrationRequests.length} requests`}
+                ? `عرض ${filteredRequests.length} من ${requests.length} طلب`
+                : `Showing ${filteredRequests.length} of ${requests.length} requests`}
             </span>
           </div>
           {(searchTerm || statusFilter !== 'all') && (
@@ -268,7 +367,7 @@ export const RequestsPage: React.FC = () => {
         <div className="grid grid-cols-1 gap-4">
           {filteredRequests.map((request, index) => (
             <Card
-              key={request.id}
+              key={request.request_id}
               className={`p-6 hover-lift animate-scale-in ${
                 request.status === 'pending'
                   ? 'border-l-4 border-l-yellow-500 dark:border-l-yellow-400'
@@ -288,13 +387,13 @@ export const RequestsPage: React.FC = () => {
                           <User className="h-6 w-6 text-kku-green dark:text-primary" />
                         </div>
                         <div>
-                          <h3 className="text-xl font-bold text-foreground">{request.studentName}</h3>
-                          <p className="text-sm text-muted-foreground">{request.studentId}</p>
+                          <h3 className="text-xl font-bold text-foreground">{request.student?.full_name}</h3>
+                          <p className="text-sm text-muted-foreground">{request.student?.email}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2 text-sm text-muted-foreground ml-15">
                         <Mail className="h-4 w-4" />
-                        <span>{request.studentEmail}</span>
+                        <span>{request.student?.email}</span>
                       </div>
                     </div>
                     <Badge
@@ -331,26 +430,26 @@ export const RequestsPage: React.FC = () => {
                           {language === 'ar' ? 'رمز المقرر' : 'Course Code'}
                         </p>
                         <p className="font-mono font-bold text-kku-green dark:text-primary text-lg">
-                          {request.courseCode}
+                          {request.course?.code}
                         </p>
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground mb-1">
                           {language === 'ar' ? 'اسم المقرر' : 'Course Name'}
                         </p>
-                        <p className="font-medium text-foreground">{request.courseName}</p>
+                        <p className="font-medium text-foreground">{request.course?.name_ar}</p>
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground mb-1">
                           {language === 'ar' ? 'الوقت' : 'Time'}
                         </p>
-                        <p className="text-sm">{request.time}</p>
+                        <p className="text-sm">{request.course?.credit_hours} {language === 'ar' ? 'ساعة' : 'CH'}</p>
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground mb-1">
                           {language === 'ar' ? 'الساعات المعتمدة' : 'Credits'}
                         </p>
-                        <p className="text-sm font-bold">{request.credits} {language === 'ar' ? 'ساعة' : 'CH'}</p>
+                        <p className="text-sm font-bold">{request.course?.credit_hours} {language === 'ar' ? 'ساعة' : 'CH'}</p>
                       </div>
                     </div>
                   </div>
@@ -360,7 +459,7 @@ export const RequestsPage: React.FC = () => {
                     <Calendar className="h-4 w-4" />
                     <span>
                       {language === 'ar' ? 'تاريخ الطلب: ' : 'Request Date: '}
-                      {new Date(request.requestDate).toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US', {
+                      {new Date(request.created_at).toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US', {
                         year: 'numeric',
                         month: 'long',
                         day: 'numeric',
@@ -371,15 +470,15 @@ export const RequestsPage: React.FC = () => {
                   </div>
 
                   {/* Review Info */}
-                  {request.reviewedBy && (
+                  {request.processed_by && (
                     <div className="bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg">
                       <p className="text-sm text-muted-foreground mb-1">
                         {language === 'ar' ? 'راجعه: ' : 'Reviewed by: '}
-                        <span className="font-medium text-foreground">{request.reviewedBy}</span>
+                        <span className="font-medium text-foreground">{request.processed_by}</span>
                       </p>
-                      {request.reviewedAt && (
+                      {request.processed_at && (
                         <p className="text-xs text-muted-foreground">
-                          {new Date(request.reviewedAt).toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US', {
+                          {new Date(request.processed_at).toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US', {
                             year: 'numeric',
                             month: 'long',
                             day: 'numeric',
@@ -388,10 +487,10 @@ export const RequestsPage: React.FC = () => {
                           })}
                         </p>
                       )}
-                      {request.note && (
+                      {request.reason && (
                         <p className="text-sm mt-2 text-foreground">
                           <span className="font-medium">{language === 'ar' ? 'ملاحظة: ' : 'Note: '}</span>
-                          {request.note}
+                          {request.reason}
                         </p>
                       )}
                     </div>
@@ -473,11 +572,11 @@ export const RequestsPage: React.FC = () => {
                 <div className="space-y-2 mt-4">
                   <p className="text-base">
                     <span className="font-medium">{language === 'ar' ? 'الطالب: ' : 'Student: '}</span>
-                    {selectedRequest.studentName}
+                    {selectedRequest.student?.full_name}
                   </p>
                   <p className="text-base">
                     <span className="font-medium">{language === 'ar' ? 'المقرر: ' : 'Course: '}</span>
-                    {selectedRequest.courseCode} - {selectedRequest.courseName}
+                    {selectedRequest.course?.code} - {selectedRequest.course?.name_ar}
                   </p>
                 </div>
               )}

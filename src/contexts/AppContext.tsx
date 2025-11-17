@@ -110,6 +110,9 @@ const translations: Record<Language, Record<string, string>> = {
     manageCourses: 'إدارة المقررات',
     manageStudents: 'إدارة الطلاب',
     manageSupervisors: 'إدارة المشرفين',
+    announcements: 'الإعلانات',
+    messages: 'الرسائل',
+    systemSettings: 'إعدادات النظام',
     
     // Common
     back: 'رجوع',
@@ -155,6 +158,9 @@ const translations: Record<Language, Record<string, string>> = {
     manageCourses: 'Manage Courses',
     manageStudents: 'Manage Students',
     manageSupervisors: 'Manage Supervisors',
+    announcements: 'Announcements',
+    messages: 'Messages',
+    systemSettings: 'System Settings',
     
     // Common
     back: 'Back',
@@ -272,9 +278,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const user = JSON.parse(savedUser);
         setUserInfo(user);
         setIsLoggedIn(true);
-        setCurrentPageState('home'); // الذهاب للصفحة الرئيسية
+        
+        // توجيه المستخدم للصفحة المناسبة حسب دوره
+        if (user.role === 'admin') {
+          setCurrentPageState('adminDashboard');
+        } else if (user.role === 'supervisor') {
+          setCurrentPageState('supervisorDashboard');
+        } else {
+          setCurrentPageState('studentDashboard');
+        }
       } else {
-        setCurrentPageState('home'); // يمكنه زيارة الصفحة العامة
+        // ✅ قبل التعهد لكن لم يسجل دخول - لا نغير الصفحة الحالية
+        // دع المستخدم في الصفحة التي هو فيها (login أو home)
+        // لا نفعل شيء - الصفحة ستبقى كما هي
       }
     } else {
       // لم يقبل التعهد - البقاء في صفحة التعهد

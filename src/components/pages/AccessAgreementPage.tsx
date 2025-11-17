@@ -14,9 +14,11 @@ import {
   Globe,
   Moon,
   Sun,
-  Smartphone,
-  Tablet,
-  Monitor
+  ArrowRight,
+  Lock,
+  Sparkles,
+  Crown,
+  Award
 } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
@@ -28,18 +30,18 @@ export const AccessAgreementPage: React.FC = () => {
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [previewDevice, setPreviewDevice] = useState<'mobile' | 'tablet' | 'desktop'>('desktop');
 
-  const agreementTextAr = `
-📜 تعهد استخدام نظام التسجيل الجامعي
+  const agreementTextAr = `بسم الله الرحمن الرحيم
 
-بسم الله الرحمن الرحيم
+📜 تعهد استخدام نظام التسجيل الأكاديمي
+جامعة الملك خالد - كلية إدارة الأعمال
+قسم المعلوماتية الإدارية - نظم المعلومات الإدارية
 
 أتعهد أنا الموقع أدناه بما يلي:
 
 1️⃣ استخدام هذا النظام للأغراض الأكاديمية فقط والمتعلقة بتسجيل المقررات الدراسية.
 
-2️⃣ عدم مشاركة بيانات الدخول الخاصة بي (البريد الإلكتروني كلمة المرور) مع أي شخص آخر.
+2️⃣ عدم مشاركة بيانات الدخول الخاصة بي (البريد الإلكتروني وكلمة المرور) مع أي شخص آخر.
 
 3️⃣ المحافظة على سرية المعلومات الشخصية والأكاديمية الخاصة بي وبزملائي الطلاب.
 
@@ -56,13 +58,13 @@ export const AccessAgreementPage: React.FC = () => {
 • سيتم حفظ عنوان IP والوقت والمتصفح المستخدم لأغراض الأمان.
 • أي مخالفة لهذا التعهد قد تؤدي إلى إيقاف حسابي وإحالتي للجهات المختصة.
 
-أقر بأنني قرأت هذا التعهد وفهمت محتواه بالكامل وأوافق على الالتزام به.
-`;
+أقر بأنني قرأت هذا التعهد وفهمت محتواه بالكامل وأوافق على الالتزام به.`;
 
-  const agreementTextEn = `
-📜 University Registration System Usage Agreement
+  const agreementTextEn = `In the Name of Allah, the Most Gracious, the Most Merciful
 
-In the Name of Allah, the Most Gracious, the Most Merciful
+📜 Academic Registration System Usage Agreement
+King Khalid University - College of Business Administration
+Department of Management Information Systems
 
 I, the undersigned, hereby pledge the following:
 
@@ -85,8 +87,7 @@ I, the undersigned, hereby pledge the following:
 • IP address, time, and browser information will be stored for security purposes.
 • Any violation of this pledge may result in account suspension and referral to the authorities.
 
-I acknowledge that I have read and understood this agreement and agree to abide by it.
-`;
+I acknowledge that I have read and understood this agreement and agree to abide by it.`;
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -124,11 +125,9 @@ I acknowledge that I have read and understood this agreement and agree to abide 
     setLoading(true);
 
     try {
-      // Get user information
       const userAgent = navigator.userAgent;
       const timestamp = new Date().toISOString();
       
-      // Get IP address (using a simple method)
       let ipAddress = 'Unknown';
       try {
         const ipResponse = await fetch('https://api.ipify.org?format=json');
@@ -138,7 +137,6 @@ I acknowledge that I have read and understood this agreement and agree to abide 
         console.log('Could not fetch IP');
       }
 
-      // Log access to Supabase
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/log-access`,
         {
@@ -158,331 +156,439 @@ I acknowledge that I have read and understood this agreement and agree to abide 
       );
 
       if (response.ok) {
-        // Store agreement acceptance in localStorage
         localStorage.setItem('agreementAccepted', 'true');
         localStorage.setItem('access_agreement_name', fullName);
         localStorage.setItem('access_agreement_time', timestamp);
 
         toast.success(
           language === 'ar' 
-            ? '✅ تم قبول التعهد بنجاح! مرحباً بك في النظام' 
-            : '✅ Agreement accepted successfully! Welcome to the system'
+            ? '✅ تم قبول التعهد بنجاح! جاري الانتقال لصفحة تسجيل الدخول...' 
+            : '✅ Agreement accepted successfully! Redirecting to login...'
         );
 
-        // Update context
         setHasAcceptedAgreement(true);
 
-        // Wait a moment then navigate
         setTimeout(() => {
-          setCurrentPage('home');
-        }, 1500);
+          setCurrentPage('login');
+        }, 1000);
       } else {
         throw new Error('Failed to log access');
       }
     } catch (error: any) {
       console.error('Error logging access:', error);
-      // Still allow access even if logging fails
       localStorage.setItem('agreementAccepted', 'true');
       localStorage.setItem('access_agreement_name', fullName);
       setHasAcceptedAgreement(true);
       toast.success(
         language === 'ar' 
-          ? '✅ مرحباً بك في النظام' 
-          : '✅ Welcome to the system'
+          ? '✅ تم قبول التعهد! جاري الانتقال لصفحة تسجيل الدخول...' 
+          : '✅ Agreement accepted! Redirecting to login...'
       );
       setTimeout(() => {
-        setCurrentPage('home');
+        setCurrentPage('login');
       }, 1000);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    handleAgree();
-  };
-
   return (
-    <div className="min-h-screen fixed inset-0 z-50 overflow-auto bg-gradient-to-br from-kku-green via-emerald-800 to-teal-900">
-      {/* أزرار التحكم في الزاوية العلوية */}
-      <div className="fixed top-4 left-4 z-50 flex flex-col gap-2 animate-fade-in">
-        {/* أزرار اللغة والثيم */}
-        <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-2 flex gap-2 shadow-2xl">
-          {/* زر اللغة */}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setLanguage(language === 'ar' ? 'en' : 'ar')}
-            className="gap-2 text-white hover:bg-white/20 hover:text-kku-gold transition-all"
-            title={language === 'ar' ? 'Switch to English' : 'التبديل للعربية'}
-          >
-            <Globe className="h-4 w-4" />
-            <span className="hidden sm:inline text-sm font-bold">
-              {language === 'ar' ? 'EN' : 'عربي'}
-            </span>
-          </Button>
-
-          {/* زر الثيم */}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-            className="text-white hover:bg-white/20 hover:text-kku-gold transition-all"
-            title={theme === 'light' ? (language === 'ar' ? 'الوضع الليلي' : 'Dark Mode') : (language === 'ar' ? 'الوضع النهاري' : 'Light Mode')}
-          >
-            {theme === 'light' ? (
-              <Moon className="h-4 w-4" />
-            ) : (
-              <Sun className="h-4 w-4" />
-            )}
-          </Button>
-        </div>
-
-        {/* أزرار معاينة الأجهزة */}
-        <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-2 flex gap-2 shadow-2xl">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setPreviewDevice('mobile')}
-            className={`text-white hover:bg-white/20 transition-all ${previewDevice === 'mobile' ? 'bg-kku-gold text-kku-green scale-110' : ''}`}
-            title={language === 'ar' ? 'معاينة الجوال' : 'Mobile Preview'}
-          >
-            <Smartphone className="h-4 w-4" />
-          </Button>
-          
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setPreviewDevice('tablet')}
-            className={`text-white hover:bg-white/20 transition-all ${previewDevice === 'tablet' ? 'bg-kku-gold text-kku-green scale-110' : ''}`}
-            title={language === 'ar' ? 'معاينة التابلت' : 'Tablet Preview'}
-          >
-            <Tablet className="h-4 w-4" />
-          </Button>
-          
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setPreviewDevice('desktop')}
-            className={`text-white hover:bg-white/20 transition-all ${previewDevice === 'desktop' ? 'bg-kku-gold text-kku-green scale-110' : ''}`}
-            title={language === 'ar' ? 'معاينة الحاسوب' : 'Desktop Preview'}
-          >
-            <Monitor className="h-4 w-4" />
-          </Button>
-        </div>
-
-        {/* عرض اسم الجهاز الحالي */}
-        <div className="bg-kku-gold/90 backdrop-blur-md border border-kku-gold rounded-2xl px-4 py-2 shadow-2xl">
-          <p className="text-kku-green text-xs font-bold text-center whitespace-nowrap">
-            {previewDevice === 'mobile' ? (language === 'ar' ? '📱 جوال' : '📱 Mobile') :
-             previewDevice === 'tablet' ? (language === 'ar' ? '📲 تابلت' : '📲 Tablet') :
-             (language === 'ar' ? '💻 حاسوب' : '💻 Desktop')}
-          </p>
-        </div>
-      </div>
-
-      {/* خلفية جذابة مع صور متعددة */}
-      <div className="absolute inset-0">
-        {/* صورة الخلفية الرئيسية */}
+    <div className="min-h-screen flex items-center justify-center p-4 sm:p-6 lg:p-8 relative overflow-hidden">
+      {/* Ultra Premium Background - Multiple Layers */}
+      <div className="absolute inset-0 z-0">
+        {/* Base Image */}
         <ImageWithFallback
-          src="https://images.unsplash.com/photo-1670284768187-5cc68eada1b3?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx1bml2ZXJzaXR5JTIwY2FtcHVzJTIwbW9kZXJuJTIwYnVpbGRpbmd8ZW58MXx8fHwxNzYyOTg5NTI1fDA&ixlib=rb-4.1.0&q=80&w=1080"
-          alt="King Khalid University Campus"
-          className="w-full h-full object-cover opacity-10"
+          src="https://images.unsplash.com/photo-1762463463957-7ffea2664743?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxnb2xkJTIwbHV4dXJ5JTIwaXNsYW1pYyUyMGFyY2hpdGVjdHVyZXxlbnwxfHx8fDE3NjMzNTU0NzV8MA&ixlib=rb-4.1.0&q=80&w=1080"
+          alt="جامعة الملك خالد - King Khalid University"
+          className="w-full h-full object-cover scale-105 animate-slow-zoom"
         />
         
-        {/* تأثير Overlay متدرج ثلاثي */}
-        <div className="absolute inset-0 bg-gradient-to-br from-kku-green/98 via-emerald-800/95 to-teal-900/98"></div>
+        {/* Premium Gradient Overlay - Layer 1 */}
+        <div className="absolute inset-0 bg-gradient-to-br from-kku-green/97 via-emerald-900/95 to-kku-green/97 backdrop-blur-[2px]"></div>
         
-        {/* نقاط مضيئة متحركة */}
+        {/* Gold Luxury Overlay - Layer 2 */}
+        <div className="absolute inset-0 bg-gradient-to-tr from-kku-gold/20 via-transparent to-kku-gold/30 mix-blend-overlay"></div>
+        
+        {/* Radial Glow - Layer 3 */}
+        <div className="absolute inset-0 bg-radial-gradient opacity-40"></div>
+        
+        {/* Animated Particles */}
         <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-kku-gold/5 rounded-full blur-3xl animate-pulse" style={{ animationDuration: '4s' }}></div>
-          <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-emerald-400/5 rounded-full blur-3xl animate-pulse" style={{ animationDuration: '6s' }}></div>
-          <div className="absolute top-1/2 right-1/3 w-64 h-64 bg-teal-300/5 rounded-full blur-3xl animate-pulse" style={{ animationDuration: '5s' }}></div>
+          {[...Array(20)].map((_, i) => (
+            <div
+              key={i}
+              className="absolute w-2 h-2 bg-kku-gold/30 rounded-full animate-float"
+              style={{
+                left: `${Math.random() * 100}%`,
+                top: `${Math.random() * 100}%`,
+                animationDelay: `${Math.random() * 5}s`,
+                animationDuration: `${5 + Math.random() * 10}s`,
+              }}
+            ></div>
+          ))}
         </div>
         
-        {/* شبكة نقاط خفيفة */}
-        <div className="absolute inset-0" style={{
-          backgroundImage: 'radial-gradient(circle, rgba(212, 175, 55, 0.1) 1px, transparent 1px)',
-          backgroundSize: '50px 50px'
+        {/* Luxury Pattern Overlay */}
+        <div className="absolute inset-0 opacity-[0.03]" style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
         }}></div>
         
-        {/* شعار الجامعة في الزاوية */}
-        <div className="absolute top-8 right-8 flex items-center gap-4 text-white animate-fade-in">
-          <div className="bg-white/20 backdrop-blur-md p-4 rounded-2xl border border-white/30 shadow-2xl hover:scale-110 transition-transform">
-            <Shield className="h-16 w-16 text-kku-gold drop-shadow-2xl" />
+        {/* Top Gold Accent */}
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-kku-gold to-transparent"></div>
+        
+        {/* Bottom Gold Accent */}
+        <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-kku-gold to-transparent"></div>
+      </div>
+
+      {/* Floating Crown Icon - Top Left */}
+      <div className="absolute top-8 left-8 z-10 animate-float">
+        <div className="relative">
+          <div className="absolute inset-0 bg-kku-gold/40 blur-xl rounded-full"></div>
+          <Crown className="relative w-12 h-12 text-kku-gold drop-shadow-2xl" />
+        </div>
+      </div>
+
+      {/* Floating Award Icon - Top Right (before language buttons) */}
+      <div className="absolute top-8 left-1/2 transform -translate-x-1/2 z-10 animate-float" style={{ animationDelay: '1s' }}>
+        <div className="relative">
+          <div className="absolute inset-0 bg-kku-gold/40 blur-xl rounded-full"></div>
+          <Award className="relative w-12 h-12 text-kku-gold drop-shadow-2xl" />
+        </div>
+      </div>
+
+      {/* Language & Theme Selector - Top Right */}
+      <div className="absolute top-6 right-6 z-20 flex flex-wrap gap-3">
+        <div className="relative group">
+          {/* Glow effect */}
+          <div className="absolute -inset-1 bg-gradient-to-r from-kku-gold via-yellow-400 to-kku-gold rounded-2xl blur opacity-30 group-hover:opacity-60 transition duration-500"></div>
+          
+          <div className="relative flex items-center gap-2 bg-white/98 dark:bg-gray-950/98 backdrop-blur-xl p-2.5 rounded-2xl shadow-2xl border-2 border-kku-gold/50">
+            <Globe className="w-5 h-5 text-kku-gold" />
+            <Button
+              variant={language === 'ar' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setLanguage('ar')}
+              className={language === 'ar' ? 'bg-gradient-to-r from-kku-green to-emerald-700 text-white hover:from-kku-green/90 hover:to-emerald-700/90 shadow-lg' : 'hover:bg-kku-green/10'}
+            >
+              عربي
+            </Button>
+            <Button
+              variant={language === 'en' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setLanguage('en')}
+              className={language === 'en' ? 'bg-gradient-to-r from-kku-green to-emerald-700 text-white hover:from-kku-green/90 hover:to-emerald-700/90 shadow-lg' : 'hover:bg-kku-green/10'}
+            >
+              English
+            </Button>
           </div>
-          <div className={`${language === 'ar' ? 'text-right' : 'text-left'} hidden md:block`}>
-            <h1 className="text-2xl font-bold text-white drop-shadow-2xl" style={{ fontFamily: language === 'ar' ? 'Tajawal, sans-serif' : 'Poppins, sans-serif' }}>
-              {language === 'ar' ? 'جامعة الملك خالد' : 'King Khalid University'}
-            </h1>
-            <p className="text-kku-gold drop-shadow-lg" style={{ fontFamily: language === 'ar' ? 'Tajawal, sans-serif' : 'Poppins, sans-serif' }}>
-              {language === 'ar' ? 'نحو مستقبل أكاديمي متميز' : 'Towards Excellence'}
-            </p>
+        </div>
+
+        <div className="relative group">
+          <div className="absolute -inset-1 bg-gradient-to-r from-kku-gold via-yellow-400 to-kku-gold rounded-2xl blur opacity-30 group-hover:opacity-60 transition duration-500"></div>
+          
+          <div className="relative flex items-center gap-2 bg-white/98 dark:bg-gray-950/98 backdrop-blur-xl p-2.5 rounded-2xl shadow-2xl border-2 border-kku-gold/50">
+            <Button
+              variant={theme === 'light' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setTheme('light')}
+              className={theme === 'light' ? 'bg-gradient-to-r from-kku-green to-emerald-700 text-white hover:from-kku-green/90 hover:to-emerald-700/90 shadow-lg' : 'hover:bg-kku-green/10'}
+            >
+              <Sun className="w-4 h-4" />
+            </Button>
+            <Button
+              variant={theme === 'dark' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setTheme('dark')}
+              className={theme === 'dark' ? 'bg-gradient-to-r from-kku-green to-emerald-700 text-white hover:from-kku-green/90 hover:to-emerald-700/90 shadow-lg' : 'hover:bg-kku-green/10'}
+            >
+              <Moon className="w-4 h-4" />
+            </Button>
           </div>
         </div>
       </div>
 
-      {/* المحتوى الرئيسي مع Device Preview */}
-      <div className="relative z-10 min-h-screen flex items-center justify-center p-4 md:p-8">
-        {/* حاوية المعاينة */}
-        <div 
-          className={`transition-all duration-500 ease-in-out ${
-            previewDevice === 'mobile' ? 'w-full max-w-[375px] scale-95' :
-            previewDevice === 'tablet' ? 'w-full max-w-[768px] scale-98' :
-            'w-full max-w-4xl'
-          } animate-fade-up`}
-          style={{ animationDuration: '0.8s' }}
-        >
-          {/* إطار الجهاز */}
-          <div className={`relative ${
-            previewDevice === 'mobile' ? 'shadow-[0_0_0_12px_#1a1a1a,0_0_0_13px_#d4af37] rounded-[3rem]' :
-            previewDevice === 'tablet' ? 'shadow-[0_0_0_8px_#2a2a2a,0_0_0_9px_#d4af37] rounded-[2rem]' :
-            ''
-          }`}>
-            {/* مربع التعهد مع Frosted Glass Effect */}
-            <Card className="backdrop-blur-xl bg-white/10 border-2 border-white/20 shadow-2xl rounded-3xl overflow-hidden">
-              {/* شريط ذهبي للعنوان */}
-              <div className="bg-gradient-to-r from-kku-gold via-yellow-500 to-kku-gold p-6 text-center relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer"></div>
-                <FileText className="h-12 w-12 mx-auto mb-3 text-kku-green drop-shadow-lg" />
-                <h2 className={`${previewDevice === 'mobile' ? 'text-xl' : 'text-3xl md:text-4xl'} font-bold text-kku-green drop-shadow-lg`} style={{ fontFamily: language === 'ar' ? 'Tajawal, sans-serif' : 'Poppins, sans-serif' }}>
-                  {language === 'ar' ? '📜 تعهد استخدام النظام' : '📜 System Usage Agreement'}
-                </h2>
-                <p className={`text-kku-green/80 mt-2 ${previewDevice === 'mobile' ? 'text-sm' : ''}`} style={{ fontFamily: language === 'ar' ? 'Tajawal, sans-serif' : 'Poppins, sans-serif' }}>
-                  {language === 'ar' ? 'نظام تسجيل المقررات الجامعية' : 'University Course Registration System'}
+      {/* Main Content Card - ULTRA PREMIUM */}
+      <div className="relative z-10 w-full max-w-7xl">
+        {/* Outer Glow */}
+        <div className="absolute -inset-4 bg-gradient-to-r from-kku-gold via-yellow-500 to-kku-gold rounded-[3rem] blur-2xl opacity-20 animate-pulse-slow"></div>
+        
+        <Card className="relative bg-white/95 dark:bg-gray-950/95 backdrop-blur-2xl shadow-[0_0_80px_rgba(212,175,55,0.3)] border-[3px] border-kku-gold/60 rounded-[2.5rem] overflow-hidden">
+          {/* Gold Border Animation */}
+          <div className="absolute inset-0 rounded-[2.5rem] border-2 border-kku-gold/30 animate-border-flow pointer-events-none"></div>
+          
+          <div className="p-8 sm:p-12 md:p-16 lg:p-20">
+            {/* Luxury Header */}
+            <div className="text-center mb-12 lg:mb-16">
+              {/* Shield Icon with Premium Effects */}
+              <div className="flex justify-center mb-10">
+                <div className="relative group">
+                  {/* Multiple glow layers */}
+                  <div className="absolute inset-0 bg-kku-gold/60 blur-3xl animate-pulse-slow rounded-full scale-150"></div>
+                  <div className="absolute inset-0 bg-emerald-500/40 blur-2xl animate-pulse rounded-full scale-125" style={{ animationDelay: '0.5s' }}></div>
+                  
+                  {/* Icon container */}
+                  <div className="relative bg-gradient-to-br from-kku-green via-emerald-600 to-kku-green p-10 rounded-[2rem] shadow-2xl transform group-hover:scale-105 transition-transform duration-500 border-4 border-kku-gold/40">
+                    {/* Inner glow */}
+                    <div className="absolute inset-2 bg-gradient-to-br from-white/20 to-transparent rounded-[1.5rem]"></div>
+                    
+                    <Shield className="relative w-32 h-32 text-white drop-shadow-2xl" strokeWidth={1.5} />
+                    
+                    {/* Sparkles */}
+                    <Sparkles className="absolute -top-2 -right-2 w-8 h-8 text-kku-gold animate-pulse" />
+                    <Sparkles className="absolute -bottom-2 -left-2 w-6 h-6 text-yellow-300 animate-pulse" style={{ animationDelay: '0.5s' }} />
+                  </div>
+                </div>
+              </div>
+              
+              {/* Title with Gradient */}
+              <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold mb-6 leading-tight">
+                <span className="bg-gradient-to-r from-kku-green via-emerald-600 to-kku-green bg-clip-text text-transparent animate-gradient-x">
+                  {language === 'ar' ? 'تعهد استخدام النظام الأكاديمي' : 'Academic System Usage Agreement'}
+                </span>
+              </h1>
+              
+              {/* University Info */}
+              <div className="space-y-3">
+                <div className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-kku-gold/20 via-yellow-500/20 to-kku-gold/20 rounded-2xl border-2 border-kku-gold/40 shadow-lg backdrop-blur-sm">
+                  <Crown className="w-8 h-8 text-kku-gold" />
+                  <p className="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-kku-green to-emerald-700 bg-clip-text text-transparent">
+                    {language === 'ar' ? 'جامعة الملك خالد' : 'King Khalid University'}
+                  </p>
+                  <Crown className="w-8 h-8 text-kku-gold" />
+                </div>
+                
+                <p className="text-lg sm:text-xl md:text-2xl text-muted-foreground font-medium">
+                  {language === 'ar' 
+                    ? 'نظام التسجيل المطور - قسم نظم المعلومات الإدارية'
+                    : 'Advanced Registration System - MIS Department'}
                 </p>
               </div>
+            </div>
 
-              <div className={`${previewDevice === 'mobile' ? 'p-4' : 'p-6 md:p-10'}`}>
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  {/* نص التعهد مع خلفية زجاجية */}
-                  <div className={`bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl ${previewDevice === 'mobile' ? 'p-3 max-h-64' : 'p-6 max-h-96'} overflow-y-auto scrollbar-thin scrollbar-thumb-kku-gold/50 scrollbar-track-white/10`}>
-                    <pre className={`whitespace-pre-wrap ${previewDevice === 'mobile' ? 'text-xs' : 'text-sm md:text-base'} leading-relaxed text-white/95`} style={{ fontFamily: language === 'ar' ? 'Tajawal, sans-serif' : 'Poppins, sans-serif' }}>
-                      {language === 'ar' ? agreementTextAr : agreementTextEn}
-                    </pre>
+            {/* Agreement Box - ULTRA LUXURY */}
+            <div className="mb-12 relative group">
+              {/* Outer glow */}
+              <div className="absolute -inset-2 bg-gradient-to-r from-kku-gold/30 via-yellow-500/30 to-kku-gold/30 rounded-[2rem] blur-xl opacity-50 group-hover:opacity-70 transition-opacity duration-500"></div>
+              
+              <Card className="relative bg-gradient-to-br from-amber-50/80 via-yellow-50/80 to-amber-50/80 dark:from-gray-900/80 dark:via-gray-800/80 dark:to-gray-900/80 backdrop-blur-xl border-[3px] border-kku-gold shadow-[0_0_60px_rgba(212,175,55,0.2)] rounded-[1.75rem] overflow-hidden">
+                {/* Top gold line */}
+                <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-transparent via-kku-gold to-transparent"></div>
+                
+                <div className="p-10 sm:p-12 md:p-14 lg:p-16">
+                  {/* Header */}
+                  <div className="flex items-center gap-4 mb-10 bg-gradient-to-r from-kku-green/10 via-emerald-600/10 to-kku-green/10 dark:from-kku-green/20 dark:via-emerald-600/20 dark:to-kku-green/20 p-7 rounded-2xl border-[3px] border-kku-green/40 shadow-xl backdrop-blur-sm relative overflow-hidden">
+                    {/* Shine effect */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-1000"></div>
+                    
+                    <FileText className="relative w-14 h-14 sm:w-16 sm:h-16 text-kku-green flex-shrink-0 drop-shadow-lg" />
+                    <h2 className="relative text-3xl sm:text-4xl md:text-5xl font-bold bg-gradient-to-r from-kku-green to-emerald-700 bg-clip-text text-transparent">
+                      {language === 'ar' ? '📜 نص التعهد' : '📜 Agreement Text'}
+                    </h2>
                   </div>
-
-                  {/* حقل الاسم الكامل */}
-                  <div className="space-y-2 animate-fade-in" style={{ animationDelay: '0.2s' }}>
-                    <Label htmlFor="fullName" className={`flex items-center gap-2 text-white ${previewDevice === 'mobile' ? 'text-sm' : 'text-lg'}`} style={{ fontFamily: language === 'ar' ? 'Tajawal, sans-serif' : 'Poppins, sans-serif' }}>
-                      <User className={`${previewDevice === 'mobile' ? 'h-4 w-4' : 'h-5 w-5'} text-kku-gold`} />
-                      {language === 'ar' ? 'الاسم الكامل' : 'Full Name'}
-                      <span className="text-red-400">*</span>
-                    </Label>
-                    <Input
-                      id="fullName"
-                      type="text"
-                      placeholder={language === 'ar' ? 'أدخل اسمك الكامل' : 'Enter your full name'}
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      className={`${previewDevice === 'mobile' ? 'h-12 text-base' : 'h-14 text-lg'} bg-white/10 backdrop-blur-md border-white/20 text-white placeholder:text-white/50 focus:bg-white/20 focus:border-kku-gold transition-all`}
-                      style={{ fontFamily: language === 'ar' ? 'Tajawal, sans-serif' : 'Poppins, sans-serif' }}
-                    />
-                    {errors.fullName && (
-                      <p className={`text-red-300 ${previewDevice === 'mobile' ? 'text-xs' : 'text-sm'} flex items-center gap-2 animate-shake`}>
-                        <AlertCircle className="h-4 w-4" />
-                        {errors.fullName}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* مربع الموافقة */}
-                  <div className={`bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl ${previewDevice === 'mobile' ? 'p-3' : 'p-6'} animate-fade-in`} style={{ animationDelay: '0.3s' }}>
-                    <div className="flex items-start gap-4">
-                      <Checkbox
-                        id="agree"
-                        checked={agreed}
-                        onCheckedChange={(checked) => setAgreed(checked as boolean)}
-                        className="mt-1 border-white/30 data-[state=checked]:bg-kku-gold data-[state=checked]:border-kku-gold"
-                      />
-                      <div className="flex-1">
-                        <label htmlFor="agree" className={`text-white cursor-pointer leading-relaxed ${previewDevice === 'mobile' ? 'text-sm' : ''}`} style={{ fontFamily: language === 'ar' ? 'Tajawal, sans-serif' : 'Poppins, sans-serif' }}>
-                          {language === 'ar' ? (
-                            <>
-                              <CheckCircle2 className={`inline ${previewDevice === 'mobile' ? 'h-4 w-4' : 'h-5 w-5'} text-kku-gold ml-2`} />
-                              أقر بأنني قرأت هذا التعهد وفهمت محتواه بالكامل وأوافق على الالتزام به، وأتحمل المسؤولية الكاملة عن استخدامي لهذا النظام.
-                            </>
-                          ) : (
-                            <>
-                              <CheckCircle2 className={`inline ${previewDevice === 'mobile' ? 'h-4 w-4' : 'h-5 w-5'} text-kku-gold mr-2`} />
-                              I acknowledge that I have read and understood this agreement and agree to abide by it, and take full responsibility for my use of this system.
-                            </>
-                          )}
-                        </label>
-                      </div>
-                    </div>
-                    {errors.agreed && (
-                      <p className={`text-red-300 ${previewDevice === 'mobile' ? 'text-xs' : 'text-sm'} flex items-center gap-2 mt-3 animate-shake`}>
-                        <AlertCircle className="h-4 w-4" />
-                        {errors.agreed}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* زر الموافقة */}
-                  <Button
-                    type="submit"
-                    disabled={loading}
-                    className={`w-full ${previewDevice === 'mobile' ? 'h-12 text-base' : 'h-16 text-xl'} bg-gradient-to-r from-kku-gold via-yellow-500 to-kku-gold hover:from-yellow-600 hover:to-kku-gold text-kku-green font-bold shadow-2xl hover:shadow-kku-gold/50 transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed animate-fade-in border-2 border-yellow-600`}
-                    style={{ animationDelay: '0.4s', fontFamily: language === 'ar' ? 'Tajawal, sans-serif' : 'Poppins, sans-serif' }}
-                  >
-                    {loading ? (
-                      <div className="flex items-center gap-3">
-                        <div className="spinner h-6 w-6 border-kku-green" />
-                        {language === 'ar' ? 'جاري المعالجة...' : 'Processing...'}
-                      </div>
-                    ) : (
-                      <span className="flex items-center gap-3">
-                        <CheckCircle2 className={`${previewDevice === 'mobile' ? 'h-5 w-5' : 'h-6 w-6'}`} />
-                        {language === 'ar' ? 'أوافق على التعهد والمتابعة' : 'I Agree and Continue'}
-                        <Shield className={`${previewDevice === 'mobile' ? 'h-5 w-5' : 'h-6 w-6'}`} />
-                      </span>
-                    )}
-                  </Button>
-
-                  {/* ملاحظة أمنية */}
-                  <div className={`bg-red-500/10 backdrop-blur-md border border-red-300/30 rounded-xl ${previewDevice === 'mobile' ? 'p-3' : 'p-4'} animate-fade-in`} style={{ animationDelay: '0.5s' }}>
-                    <div className="flex items-start gap-3">
-                      <AlertCircle className={`${previewDevice === 'mobile' ? 'h-4 w-4' : 'h-5 w-5'} text-red-300 flex-shrink-0 mt-0.5`} />
-                      <p className={`${previewDevice === 'mobile' ? 'text-xs' : 'text-sm'} text-red-100 leading-relaxed`} style={{ fontFamily: language === 'ar' ? 'Tajawal, sans-serif' : 'Poppins, sans-serif' }}>
-                        {language === 'ar' ? (
-                          <>
-                            <strong className="text-red-200">تنبيه أمني:</strong> سيتم تسجيل عنوان IP الخاص بك، نوع المتصفح، والوقت لأغراض الأمان. أي محاولة للاختراق أو الاستخدام غير المصرح به سيؤدي إلى اتخاذ الإجراءات القانونية اللازمة.
-                          </>
-                        ) : (
-                          <>
-                            <strong className="text-red-200">Security Notice:</strong> Your IP address, browser type, and timestamp will be logged for security purposes. Any attempt to breach or unauthorized use will result in legal action.
-                          </>
-                        )}
-                      </p>
+                  
+                  {/* Agreement Text - Premium Scrollable */}
+                  <div className="relative group/scroll">
+                    <div className="absolute -inset-1 bg-gradient-to-r from-kku-gold/20 via-transparent to-kku-gold/20 rounded-2xl"></div>
+                    
+                    <div className="relative bg-white dark:bg-gray-950 p-10 sm:p-12 md:p-14 rounded-2xl border-[3px] border-kku-gold/30 shadow-inner max-h-[600px] overflow-y-auto custom-scrollbar">
+                      <pre className="text-xl sm:text-2xl md:text-3xl leading-relaxed whitespace-pre-wrap font-sans text-foreground">
+                        {language === 'ar' ? agreementTextAr : agreementTextEn}
+                      </pre>
                     </div>
                   </div>
-                </form>
+                </div>
+                
+                {/* Bottom gold line */}
+                <div className="absolute bottom-0 left-0 right-0 h-2 bg-gradient-to-r from-transparent via-kku-gold to-transparent"></div>
+              </Card>
+            </div>
+
+            {/* Name Input - Premium */}
+            <div className="mb-10">
+              <Label htmlFor="fullName" className="text-2xl sm:text-3xl font-bold mb-4 flex items-center gap-3 text-foreground">
+                <div className="p-2 bg-gradient-to-br from-kku-green to-emerald-700 rounded-xl">
+                  <User className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
+                </div>
+                {language === 'ar' ? 'الاسم الكامل' : 'Full Name'}
+                <span className="text-red-500">*</span>
+              </Label>
+              <div className="relative group">
+                <div className="absolute -inset-1 bg-gradient-to-r from-kku-gold/30 to-emerald-500/30 rounded-2xl blur opacity-30 group-hover:opacity-60 transition duration-500"></div>
+                <Input
+                  id="fullName"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder={language === 'ar' ? 'أدخل اسمك الثلاثي أو الرباعي' : 'Enter your full name'}
+                  className={`relative h-20 sm:h-24 text-xl sm:text-2xl md:text-3xl border-[3px] rounded-2xl shadow-lg backdrop-blur-sm bg-white/50 dark:bg-gray-900/50 ${
+                    errors.fullName ? 'border-red-500' : 'border-kku-green/50 focus:border-kku-gold focus:ring-4 focus:ring-kku-gold/30'
+                  }`}
+                  disabled={loading}
+                />
               </div>
-            </Card>
-          </div>
+              {errors.fullName && (
+                <p className="text-red-500 text-lg sm:text-xl mt-3 flex items-center gap-2 font-medium">
+                  <AlertCircle className="w-6 h-6" />
+                  {errors.fullName}
+                </p>
+              )}
+            </div>
 
-          {/* معلومات إضافية */}
-          <div className={`mt-6 text-center text-white/80 ${previewDevice === 'mobile' ? 'text-xs' : 'text-sm'} animate-fade-in`} style={{ animationDelay: '0.6s', fontFamily: language === 'ar' ? 'Tajawal, sans-serif' : 'Poppins, sans-serif' }}>
-            <p>
-              {language === 'ar' 
-                ? '🔒 جميع بياناتك محمية ومشفرة وفقاً لأعلى معايير الأمان' 
-                : '🔒 All your data is protected and encrypted according to the highest security standards'}
-            </p>
-            <p className="mt-2">
-              {language === 'ar' 
-                ? 'كلية إدارة الأعمال - قسم نظم المعلومات الإدارية' 
-                : 'College of Business - MIS Department'}
-            </p>
-            <p className="text-kku-gold mt-1">
-              {language === 'ar' 
-                ? '© 2025 جامعة الملك خالد - جميع الحقوق محفوظة' 
-                : '© 2025 King Khalid University - All Rights Reserved'}
-            </p>
+            {/* Checkbox - Premium */}
+            <div className="mb-12 relative group">
+              <div className="absolute -inset-2 bg-gradient-to-r from-kku-gold/20 via-emerald-500/20 to-kku-gold/20 rounded-[2rem] blur-xl opacity-40 group-hover:opacity-60 transition-opacity duration-500"></div>
+              
+              <Card className="relative bg-gradient-to-br from-kku-green/5 via-emerald-50/50 to-kku-green/5 dark:from-kku-green/10 dark:via-gray-800 dark:to-kku-green/10 backdrop-blur-xl border-[3px] border-kku-green/50 shadow-2xl rounded-[1.5rem]">
+                <div className="p-10 sm:p-12 md:p-14">
+                  <div className="flex items-start gap-6">
+                    <Checkbox
+                      id="agreed"
+                      checked={agreed}
+                      onCheckedChange={(checked) => setAgreed(checked as boolean)}
+                      className="mt-2 h-12 w-12 sm:h-14 sm:w-14 border-[3px] border-kku-green data-[state=checked]:bg-gradient-to-br data-[state=checked]:from-kku-green data-[state=checked]:to-emerald-700 data-[state=checked]:border-kku-gold rounded-xl shadow-lg"
+                      disabled={loading}
+                    />
+                    <div className="flex-1">
+                      <Label
+                        htmlFor="agreed"
+                        className="text-2xl sm:text-3xl md:text-4xl font-bold cursor-pointer text-foreground leading-relaxed"
+                      >
+                        <span className="inline-flex items-center gap-4 flex-wrap">
+                          <CheckCircle2 className="w-10 h-10 sm:w-12 sm:h-12 text-kku-green flex-shrink-0" />
+                          {language === 'ar' 
+                            ? 'أوافق على جميع بنود هذا التعهد وألتزم بتطبيقها'
+                            : 'I agree to all terms of this pledge and commit to comply'}
+                        </span>
+                      </Label>
+                      {errors.agreed && (
+                        <p className="text-red-500 text-lg sm:text-xl mt-4 flex items-center gap-3 font-medium">
+                          <AlertCircle className="w-6 h-6" />
+                          {errors.agreed}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            </div>
+
+            {/* Submit Button - ULTRA PREMIUM */}
+            <div className="relative group mb-12">
+              {/* Multiple glow layers */}
+              <div className="absolute -inset-4 bg-gradient-to-r from-kku-gold via-yellow-400 to-kku-gold rounded-[2rem] blur-2xl opacity-40 group-hover:opacity-70 animate-pulse-slow transition-opacity duration-500"></div>
+              <div className="absolute -inset-2 bg-gradient-to-r from-emerald-500 via-kku-green to-emerald-500 rounded-[1.75rem] blur-xl opacity-30 group-hover:opacity-50 transition-opacity duration-500"></div>
+              
+              <Button
+                onClick={handleAgree}
+                disabled={loading || !agreed || !fullName.trim()}
+                className="relative w-full h-24 sm:h-28 md:h-32 text-3xl sm:text-4xl md:text-5xl font-bold bg-gradient-to-r from-kku-green via-emerald-600 to-kku-green hover:from-emerald-600 hover:via-kku-green hover:to-emerald-600 text-white shadow-2xl transition-all duration-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-[1.5rem] border-[3px] border-kku-gold/50 overflow-hidden group"
+              >
+                {/* Animated background */}
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-1000"></div>
+                
+                {/* Gold accent lines */}
+                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-kku-gold to-transparent"></div>
+                <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-kku-gold to-transparent"></div>
+                
+                {loading ? (
+                  <div className="flex items-center justify-center gap-5 relative z-10">
+                    <div className="animate-spin h-12 w-12 border-[4px] border-white border-t-kku-gold rounded-full"></div>
+                    <span>{language === 'ar' ? 'جاري التحقق...' : 'Verifying...'}</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center gap-5 relative z-10">
+                    <CheckCircle2 className="w-12 h-12 sm:w-14 sm:h-14 animate-pulse" />
+                    <span className="flex-1">
+                      {language === 'ar' ? '✅ أوافق وأتعهد - الانتقال للدخول' : '✅ I Agree - Go to Login'}
+                    </span>
+                    <ArrowRight className={`w-12 h-12 sm:w-14 sm:h-14 ${language === 'ar' ? 'rotate-180' : ''} animate-bounce-x`} />
+                  </div>
+                )}
+              </Button>
+            </div>
+
+            {/* Security Footer - Premium */}
+            <div className="relative group">
+              <div className="absolute -inset-1 bg-gradient-to-r from-blue-500/30 via-indigo-500/30 to-blue-500/30 rounded-2xl blur opacity-30 group-hover:opacity-50 transition-opacity duration-500"></div>
+              
+              <div className="relative p-8 sm:p-10 bg-gradient-to-r from-blue-50 via-indigo-50 to-blue-50 dark:from-blue-950/50 dark:via-indigo-950/50 dark:to-blue-950/50 backdrop-blur-xl rounded-2xl border-[3px] border-blue-300 dark:border-blue-700 shadow-xl">
+                <p className="text-center text-lg sm:text-xl md:text-2xl text-blue-900 dark:text-blue-100 flex items-center justify-center gap-4 flex-wrap font-semibold">
+                  <Lock className="w-8 h-8 sm:w-9 sm:h-9 flex-shrink-0" />
+                  <span>
+                    {language === 'ar' 
+                      ? '🔒 جميع البيانات محمية ومشفرة وفقاً لمعايير الأمان العالمية ISO 27001'
+                      : '🔒 All data is protected and encrypted according to ISO 27001 security standards'}
+                  </span>
+                </p>
+              </div>
+            </div>
           </div>
-        </div>
+        </Card>
       </div>
+
+      <style>{`
+        @keyframes float {
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-20px); }
+        }
+        @keyframes bounce-x {
+          0%, 100% { transform: translateX(0); }
+          50% { transform: translateX(10px); }
+        }
+        @keyframes pulse-slow {
+          0%, 100% { opacity: 0.3; }
+          50% { opacity: 0.6; }
+        }
+        @keyframes slow-zoom {
+          0%, 100% { transform: scale(1.05); }
+          50% { transform: scale(1.1); }
+        }
+        @keyframes gradient-x {
+          0%, 100% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+        }
+        @keyframes border-flow {
+          0% { opacity: 0.3; }
+          50% { opacity: 0.6; }
+          100% { opacity: 0.3; }
+        }
+        .animate-float {
+          animation: float 6s ease-in-out infinite;
+        }
+        .animate-bounce-x {
+          animation: bounce-x 1s ease-in-out infinite;
+        }
+        .animate-pulse-slow {
+          animation: pulse-slow 4s ease-in-out infinite;
+        }
+        .animate-slow-zoom {
+          animation: slow-zoom 20s ease-in-out infinite;
+        }
+        .animate-gradient-x {
+          background-size: 200% 200%;
+          animation: gradient-x 3s ease infinite;
+        }
+        .animate-border-flow {
+          animation: border-flow 3s ease-in-out infinite;
+        }
+        .bg-radial-gradient {
+          background: radial-gradient(circle at 50% 50%, rgba(212, 175, 55, 0.3) 0%, transparent 70%);
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 12px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: rgba(212, 175, 55, 0.1);
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: linear-gradient(to bottom, #184A2C, #10B981);
+          border-radius: 10px;
+          border: 2px solid rgba(212, 175, 55, 0.3);
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: linear-gradient(to bottom, #10B981, #184A2C);
+        }
+      `}</style>
     </div>
   );
 };

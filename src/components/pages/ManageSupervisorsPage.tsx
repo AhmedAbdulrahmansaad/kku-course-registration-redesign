@@ -63,27 +63,45 @@ export const ManageSupervisorsPage: React.FC = () => {
       setLoading(true);
       const accessToken = localStorage.getItem('access_token');
       
+      if (!accessToken) {
+        toast.error(
+          language === 'ar'
+            ? '🚫 يجب تسجيل الدخول أولاً'
+            : '🚫 Access denied: User not logged in'
+        );
+        setSupervisors([]);
+        return;
+      }
+      
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/admin/supervisors`,
         {
           headers: {
-            Authorization: `Bearer ${accessToken || publicAnonKey}`,
+            Authorization: `Bearer ${accessToken}`,
           },
         }
       );
+
+      // التحقق من نوع المحتوى قبل محاولة parse
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        console.error('Response is not JSON:', await response.text());
+        throw new Error('Invalid response format');
+      }
 
       const result = await response.json();
 
       if (response.ok) {
         setSupervisors(result.supervisors || []);
       } else {
-        throw new Error(result.error);
+        throw new Error(result.error || 'Failed to fetch supervisors');
       }
     } catch (error: any) {
       console.error('Error fetching supervisors:', error);
       toast.error(
         language === 'ar' ? 'فشل في تحميل المشرفين' : 'Failed to load supervisors'
       );
+      setSupervisors([]);
     } finally {
       setLoading(false);
     }
@@ -93,6 +111,15 @@ export const ManageSupervisorsPage: React.FC = () => {
     try {
       setSaving(true);
       const accessToken = localStorage.getItem('access_token');
+
+      if (!accessToken) {
+        toast.error(
+          language === 'ar'
+            ? '🚫 يجب تسجيل الدخول أولاً'
+            : '🚫 Access denied: User not logged in'
+        );
+        return;
+      }
 
       if (!formData.fullName || !formData.email || !formData.password) {
         toast.error(
@@ -112,6 +139,8 @@ export const ManageSupervisorsPage: React.FC = () => {
         return;
       }
 
+      console.log('📝 Adding supervisor:', formData);
+
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/admin/add-supervisor`,
         {
@@ -124,22 +153,43 @@ export const ManageSupervisorsPage: React.FC = () => {
         }
       );
 
-      const result = await response.json();
+      console.log('📝 Response status:', response.status);
 
-      if (response.ok) {
-        toast.success(
-          language === 'ar'
-            ? '✅ تم إضافة المشرف بنجاح'
-            : '✅ Supervisor added successfully'
-        );
-        setIsAddDialogOpen(false);
-        resetForm();
-        fetchSupervisors();
-      } else {
-        throw new Error(result.error);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Server error:', errorText);
+        
+        let errorMessage;
+        try {
+          const errorJson = JSON.parse(errorText);
+          errorMessage = errorJson.error || errorText;
+        } catch {
+          errorMessage = errorText;
+        }
+        throw new Error(errorMessage);
       }
+
+      const result = await response.json();
+      console.log('✅ Supervisor added:', result);
+
+      toast.success(
+        language === 'ar'
+          ? '✅ تم إضافة المشرف بنجاح'
+          : '✅ Supervisor added successfully',
+        {
+          description: language === 'ar'
+            ? `تم إنشاء حساب ${formData.fullName} بنجاح`
+            : `Account for ${formData.fullName} created successfully`
+        }
+      );
+      
+      setIsAddDialogOpen(false);
+      resetForm();
+      
+      // جلب المشرفين مباشرة لإظهار المشرف الجديد
+      await fetchSupervisors();
     } catch (error: any) {
-      console.error('Error adding supervisor:', error);
+      console.error('❌ Error adding supervisor:', error);
       toast.error(
         error.message || (language === 'ar' ? 'فشل في إضافة المشرف' : 'Failed to add supervisor')
       );

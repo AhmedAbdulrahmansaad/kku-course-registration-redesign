@@ -1,100 +1,44 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useApp } from '../contexts/AppContext';
-import { MessageCircle, X, Send, Bot, User } from 'lucide-react';
+import { MessageCircle, X, Send, Bot, User, Loader2, Sparkles } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Card } from './ui/card';
 import { ScrollArea } from './ui/scroll-area';
+import { Badge } from './ui/badge';
+import { toast } from 'sonner@2.0.3';
+import { projectId, publicAnonKey } from '../utils/supabase/info';
 
 interface Message {
   id: string;
   text: string;
   isUser: boolean;
   timestamp: Date;
+  type?: 'ai' | 'fallback' | 'error';
 }
 
-const knowledgeBase: Record<string, { ar: string; en: string }> = {
-  'greeting': {
-    ar: '👋 مرحباً! أنا مساعد جامعة الملك خالد الذكي. أنا هنا لمساعدتك في جميع استفساراتك الأكاديمية. كيف يمكنني مساعدتك اليوم؟',
-    en: '👋 Hello! I am King Khalid University Smart Assistant. I am here to help you with all your academic inquiries. How can I help you today?'
-  },
-  'مرحبا': {
-    ar: '👋 أهلاً وسهلاً! كيف يمكنني مساعدتك اليوم؟',
-    en: '👋 Welcome! How can I help you today?'
-  },
-  'hello': {
-    ar: '👋 أهلاً وسهلاً! كيف يمكنني مساعدتك اليوم؟',
-    en: '👋 Welcome! How can I help you today?'
-  },
-  'add course': {
-    ar: '📚 لإضافة مقرر:\n\n1️⃣ اذهب إلى صفحة "المقررات المتاحة"\n2️⃣ اختر التخصص والمستوى\n3️⃣ اضغط على زر "سجل الآن" بجانب المقرر\n4️⃣ أرسل طلب التسجيل للمشرف الأكاديمي\n5️⃣ انتظر الموافقة من المشرف\n\n💡 تأكد من:\n• عدم وجود تعارض في الجدول\n• استيفاء المتطلبات الأساسية\n• عدم تجاوز 18 ساعة معتمدة',
-    en: '📚 To add a course:\n\n1️⃣ Go to "Available Courses" page\n2️⃣ Select your major and level\n3️⃣ Click "Register Now" button next to the course\n4️⃣ Submit registration request to academic supervisor\n5️⃣ Wait for supervisor approval\n\n💡 Make sure:\n• No schedule conflict\n• Prerequisites met\n• Not exceeding 18 credit hours'
-  },
-  'كيف أضيف مقرر': {
-    ar: '📚 لإضافة مقرر:\n\n1️⃣ اذهب إلى صفحة "المقررات المتاحة"\n2️⃣ اختر التخصص والمستوى\n3️⃣ اضغط على زر "سجل الآن" بجانب المقرر\n4️⃣ أرسل طلب التسجيل للمشرف الأكاديمي\n5️⃣ انتظر الموافقة من المشرف\n\n💡 تأكد من:\n• عدم وجود تعارض في الجدول\n• استيفاء المتطلبات الأساسية\n• عدم تجاوز 18 ساعة معتمدة',
-    en: '📚 To add a course:\n\n1️⃣ Go to "Available Courses" page\n2️⃣ Select your major and level\n3️⃣ Click "Register Now" button next to the course\n4️⃣ Submit registration request to academic supervisor\n5️⃣ Wait for supervisor approval\n\n💡 Make sure:\n• No schedule conflict\n• Prerequisites met\n• Not exceeding 18 credit hours'
-  },
-  'كيف أسجل مقرر': {
-    ar: '📚 لتسجيل مقرر:\n\n1️⃣ اذهب إلى صفحة "المقررات المتاحة"\n2️⃣ اضغط "سجل الآن" على المقرر\n3️⃣ سيتم إرسال طلبك للمشرف الأكاديمي (د. محمد رشيد)\n4️⃣ ستظهر الحالة "قيد الانتظار" حتى الموافقة\n5️⃣ ستستلم إشعار عند الموافقة أو الرفض',
-    en: '📚 To register for a course:\n\n1️⃣ Go to "Available Courses" page\n2️⃣ Click "Register Now" on the course\n3️⃣ Your request will be sent to academic supervisor (Dr. Mohammed Rashid)\n4️⃣ Status will show "Pending" until approval\n5️⃣ You will receive notification upon approval or rejection'
-  },
-  'delete course': {
-    ar: '🗑️ لحذف مقرر:\n\n1️⃣ اذهب إلى "المقررات المسجلة"\n2️⃣ اضغط على أيقونة سلة المهملات بجانب المقرر\n3️⃣ أكد عملية الحذف\n\n⚠️ ملاحظات مهة:\n• يجب أن يكون الحذف خلال فترة الحذف والإضافة\n• قد تحتاج موافقة المشرف الأكاديمي\n• تأكد من أن المقرر ليس متطلب سابق لمقرر آخر',
-    en: '🗑️ To delete a course:\n\n1️⃣ Go to "Registered Courses"\n2️⃣ Click the trash icon next to the course\n3️⃣ Confirm deletion\n\n⚠️ Important notes:\n• Deletion must be during add/drop period\n• May require academic supervisor approval\n• Make sure course is not a prerequisite for another course'
-  },
-  'كيف أحذف مقرر': {
-    ar: '🗑️ لحذف مقرر:\n\n1️⃣ اذهب إلى "المقررات المسجلة"\n2️⃣ اضغط على أيقونة سلة المهملات\n3️⃣ أكد الحذف\n\n⚠️ الحذف يجب أن يكون خلال الفترة المحددة',
-    en: '🗑️ To delete a course:\n\n1️⃣ Go to "Registered Courses"\n2️⃣ Click trash icon\n3️⃣ Confirm deletion\n\n⚠️ Deletion must be during designated period'
-  },
-  'view schedule': {
-    ar: '📅 لعرض جدولك الدراسي:\n\n1️⃣ اذهب إلى "الجدول الدراسي" من القائمة\n2️⃣ ستجد جميع المقررات المسجلة مع:\n   • الأوقات\n   • القاعات\n   • أسماء الأساتذة\n3️⃣ يمكنك:\n   ✅ تحميل الجدول كـ PDF\n   ✅ طباعة الجدول\n   ✅ عرض على الجوال',
-    en: '📅 To view your schedule:\n\n1️⃣ Go to "My Schedule" from menu\n2️⃣ You will find all registered courses with:\n   • Times\n   • Rooms\n   • Instructor names\n3️⃣ You can:\n   ✅ Download schedule as PDF\n   ✅ Print schedule\n   ✅ View on mobile'
-  },
-  'كيف أعرف جدولي': {
-    ar: '📅 لعرض جدولك:\n\n1️⃣ من القائمة الجانبية، اختر "الجدول الدراسي"\n2️⃣ سترى جدول أسبوعي كامل\n3️⃣ يمكنك تحميله PDF أو طباعته',
-    en: '📅 To view your schedule:\n\n1️⃣ From sidebar, choose "My Schedule"\n2️⃣ You will see complete weekly schedule\n3️⃣ You can download PDF or print it'
-  },
-  'كيف أعرف معدلي': {
-    ar: '📊 لمعرفة معدلك التراكمي:\n\n1️⃣ اذهب إلى "تقاريري الأكاديمية"\n2️⃣ ستجد المعدل التراكمي مباشرة في الأعلى\n3️⃣ يمكنك أيضاً مشاهدة:\n   • معدل كل فصل\n   • توزيع الدرجات\n   • التقدم الدراسي\n\n💡 المعدل يُحسب تلقائياً بعد نهاية كل فصل',
-    en: '📊 To check your GPA:\n\n1️⃣ Go to "My Academic Reports"\n2️⃣ You will find cumulative GPA at the top\n3️⃣ You can also see:\n   • GPA per semester\n   • Grade distribution\n   • Academic progress\n\n💡 GPA is calculated automatically after each semester'
-  },
-  'تقارير': {
-    ar: '📈 للوصول إلى التقارير الأكاديمية:\n\n1️⃣ اذهب إلى "تقاريري الأكاديمية"\n2️⃣ اختر نوع التقرير:\n   • التقرير الأكاديمي الشامل\n   • تقرير الأداء\n   • تقرير المقررات\n3️⃣ يمكنك:\n   📄 تحميل كـ PDF\n   📝 تحميل كـ Word\n   🖨️ طباعة مباشرة\n\n✅ جميع التقارير محدثة آلياً من قاعدة البيانات',
-    en: '📈 To access academic reports:\n\n1️⃣ Go to "My Academic Reports"\n2️⃣ Choose report type:\n   • Comprehensive Academic Report\n   • Performance Report\n   • Courses Report\n3️⃣ You can:\n   📄 Download as PDF\n   📝 Download as Word\n   🖨️ Print directly\n\n✅ All reports are auto-updated from database'
-  },
-  'reports': {
-    ar: '📈 للوصول إلى التقارير:\n\n1️⃣ "تقاريري الأكاديمية" من القائمة\n2️⃣ اختر التقرير المطلوب\n3️⃣ حمّل PDF أو Word أو اطبع',
-    en: '📈 To access reports:\n\n1️⃣ "My Academic Reports" from menu\n2️⃣ Choose desired report\n3️⃣ Download PDF or Word or print'
-  },
-  'تواصل مع المشرف': {
-    ar: '👨‍🏫 للتواصل مع المشرف الأكاديمي (د. محمد رشيد):\n\n1️⃣ اذهب إلى صفحة "اتصل بنا"\n2️⃣ اختر "استشارة أكاديمية" كموضوع\n3️⃣ اكتب رسالتك بوضوح\n4️⃣ اضغط "إرسال"\n\n📧 البريد الإلكتروني: m.rashid@kku.edu.sa\n📞 رقم التواصل: سيتم الرد خلال 24 ساعة',
-    en: '👨‍🏫 To contact academic supervisor (Dr. Mohammed Rashid):\n\n1️⃣ Go to "Contact Us" page\n2️⃣ Choose "Academic Consultation" as subject\n3️⃣ Write your message clearly\n4️⃣ Click "Send"\n\n📧 Email: m.rashid@kku.edu.sa\n📞 Contact: Response within 24 hours'
-  },
-  'رفع ملفات': {
-    ar: '📁 لرفع المستندات:\n\n1️⃣ اذهب إلى "إدارة المستندات"\n2️⃣ اسحب وأفلت الملف أو اضغط "اختر ملف"\n3️⃣ انتظر اكتمال الرفع\n\n✅ الصيغ المدعومة: JPG, PNG, PDF\n⚠️ الحد الأقصى: 5MB لكل ملف',
-    en: '📁 To upload documents:\n\n1️⃣ Go to "Documents Management"\n2️⃣ Drag and drop file or click "Choose File"\n3️⃣ Wait for upload completion\n\n✅ Supported formats: JPG, PNG, PDF\n⚠️ Max size: 5MB per file'
-  },
-  'upload files': {
-    ar: '📁 لرفع الملفات:\n\n1️⃣ "إدارة المستندات"\n2️⃣ اسحب الملف أو اختره\n3️⃣ انتظر التحميل\n\n✅ JPG, PNG, PDF (حد أقصى 5MB)',
-    en: '📁 To upload files:\n\n1️⃣ "Documents Management"\n2️⃣ Drag file or choose it\n3️⃣ Wait for upload\n\n✅ JPG, PNG, PDF (max 5MB)'
-  },
-  'مقررات قسمي': {
-    ar: '🎓 مقررات قسم نظم المعلومات الإدارية:\n\n• المستوى 1-2: مقررات عامة وتأسيسية\n• المستوى 3-4: مقررات التخصص الأساسية\n• المستوى 5-6: مقررات متقدمة\n• المستوى 7-8: مشاريع وتدريب ميداني\n\n📚 إجمالي: 49 مقرر (132 ساعة)\n\nللتفاصيل الكاملة، اذهب إلى "المقررات المتاحة"',
-    en: '🎓 MIS Department Courses:\n\n• Level 1-2: General and foundational courses\n• Level 3-4: Core major courses\n• Level 5-6: Advanced courses\n• Level 7-8: Projects and field training\n\n📚 Total: 49 courses (132 hours)\n\nFor full details, go to "Available Courses"'
-  },
-};
-
 export const AIAssistant: React.FC = () => {
-  const { language, currentPage } = useApp();
+  const { language, currentPage, userInfo } = useApp();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '0',
       text: language === 'ar' 
-        ? 'مرحباً! كيف يمكنني مساعدتك اليوم؟'
-        : 'Hello! How can I help you today?',
+        ? `👋 مرحباً ${userInfo?.name || ''}! أنا المساعد الذكي لجامعة الملك خالد.\n\n✨ يمكنني مساعدتك في:\n${userInfo?.role === 'supervisor' 
+          ? '• 📋 طلبات الطلاب\n• 📊 التقارير\n• 🎓 إدارة القسم'
+          : userInfo?.role === 'admin'
+          ? '• 📈 الإحصائيات\n• 🏢 الأقسام\n• ⚠️ المشاكل والحلول'
+          : '• 📚 المقررات والتسجيل\n• 📅 الجدول الدراسي\n• 📊 المعدل والساعات\n• 🔍 التعارضات'
+        }\n\nاسألني أي شيء! 🤔`
+        : `👋 Hello ${userInfo?.name || ''}! I'm the King Khalid University Smart Assistant.\n\n✨ I can help you with:\n${userInfo?.role === 'supervisor' 
+          ? '• 📋 Student requests\n• 📊 Reports\n• 🎓 Department management'
+          : userInfo?.role === 'admin'
+          ? '• 📈 Statistics\n• 🏢 Departments\n• ⚠️ Issues and solutions'
+          : '• 📚 Courses and registration\n• 📅 Class schedule\n• 📊 GPA and hours\n• 🔍 Conflicts'
+        }\n\nAsk me anything! 🤔`,
       isUser: false,
       timestamp: new Date(),
+      type: 'ai',
     },
   ]);
   const [inputValue, setInputValue] = useState('');
@@ -109,23 +53,180 @@ export const AIAssistant: React.FC = () => {
     scrollToBottom();
   }, [messages]);
 
-  const getResponse = (query: string): string => {
-    const lowerQuery = query.toLowerCase().trim();
-    
-    for (const [key, value] of Object.entries(knowledgeBase)) {
-      if (lowerQuery.includes(key.toLowerCase()) || key.toLowerCase().includes(lowerQuery)) {
-        return value[language];
-      }
+  // Update greeting when user info changes
+  useEffect(() => {
+    if (userInfo && messages.length === 1) {
+      setMessages([{
+        id: '0',
+        text: language === 'ar' 
+          ? `👋 مرحباً ${userInfo.name}! أنا المساعد الذكي لجامعة الملك خالد.\n\n✨ يمكنني مساعدتك في:\n${userInfo.role === 'supervisor' 
+            ? '• 📋 طلبات الطلاب\n• 📊 التقارير\n• 🎓 إدارة القسم'
+            : userInfo.role === 'admin'
+            ? '• 📈 الإحصائيات\n• 🏢 الأقسام\n• ⚠️ المشاكل والحلول'
+            : '• 📚 المقررات والتسجيل\n• 📅 الجدول الدراسي\n• 📊 المعدل والساعات\n• 🔍 التعارضات'
+          }\n\nاسألني أي شيء! 🤔`
+          : `👋 Hello ${userInfo.name}! I'm the King Khalid University Smart Assistant.\n\n✨ I can help you with:\n${userInfo.role === 'supervisor' 
+            ? '• 📋 Student requests\n• 📊 Reports\n• 🎓 Department management'
+            : userInfo.role === 'admin'
+            ? '• 📈 Statistics\n• 🏢 Departments\n• ⚠️ Issues and solutions'
+            : '• 📚 Courses and registration\n• 📅 Class schedule\n• 📊 GPA and hours\n• 🔍 Conflicts'
+          }\n\nAsk me anything! 🤔`,
+        isUser: false,
+        timestamp: new Date(),
+        type: 'ai',
+      }]);
     }
+  }, [userInfo, language]);
 
-    return language === 'ar'
-      ? 'عذراً، لم أفهم سؤالك. يمكنني مساعدتك في:\\n- إضافة وحذف المقررات\\n- عرض الجدول والتقارير\\n- رفع المستندات'
-      : "Sorry, I didn't understand your question. I can help you with:\\n- Adding and removing courses\\n- Viewing schedule and reports\\n- Uploading documents";
+  const getAIResponse = async (query: string): Promise<{ response: string; type: 'ai' | 'fallback' | 'error' }> => {
+    try {
+      console.log('🤖 Sending AI request:', query);
+
+      // جلب بيانات المستخدم الحالية
+      let contextData: any = {
+        userInfo: {
+          name: userInfo?.name,
+          id: userInfo?.id,
+          role: userInfo?.role || 'student',
+          level: userInfo?.level,
+          major: userInfo?.major,
+          gpa: userInfo?.gpa,
+        },
+      };
+
+      // جلب المقررات إذا كان طالب
+      if (userInfo?.role === 'student' || !userInfo?.role) {
+        try {
+          const coursesResponse = await fetch(
+            `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/courses/all`,
+            {
+              headers: {
+                'Authorization': `Bearer ${publicAnonKey}`,
+              },
+            }
+          );
+          
+          if (coursesResponse.ok) {
+            const coursesData = await coursesResponse.json();
+            contextData.courses = coursesData.courses;
+            console.log('✅ Fetched courses:', coursesData.courses?.length);
+          }
+        } catch (err) {
+          console.log('⚠️ Could not fetch courses:', err);
+        }
+
+        // جلب المقررات المسجلة
+        try {
+          const registrationsResponse = await fetch(
+            `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/student/registrations`,
+            {
+              headers: {
+                'Authorization': `Bearer ${userInfo?.access_token || publicAnonKey}`,
+              },
+            }
+          );
+          
+          if (registrationsResponse.ok) {
+            const registrationsData = await registrationsResponse.json();
+            contextData.registrations = registrationsData.registrations;
+            console.log('✅ Fetched registrations:', registrationsData.registrations?.length);
+          }
+        } catch (err) {
+          console.log('⚠️ Could not fetch registrations:', err);
+        }
+      }
+
+      // جلب بيانات المشرف
+      if (userInfo?.role === 'supervisor') {
+        try {
+          const requestsResponse = await fetch(
+            `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/supervisor/requests`,
+            {
+              headers: {
+                'Authorization': `Bearer ${userInfo?.access_token || publicAnonKey}`,
+              },
+            }
+          );
+          
+          if (requestsResponse.ok) {
+            const requestsData = await requestsResponse.json();
+            contextData.requests = requestsData.requests;
+            console.log('✅ Fetched supervisor requests:', requestsData.requests?.length);
+          }
+        } catch (err) {
+          console.log('⚠️ Could not fetch supervisor requests:', err);
+        }
+      }
+
+      // جلب بيانات المدير
+      if (userInfo?.role === 'admin') {
+        try {
+          // جلب إحصائيات الطلاب
+          const studentsResponse = await fetch(
+            `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/admin/students`,
+            {
+              headers: {
+                'Authorization': `Bearer ${userInfo?.access_token || publicAnonKey}`,
+              },
+            }
+          );
+          
+          if (studentsResponse.ok) {
+            const studentsData = await studentsResponse.json();
+            contextData.students = studentsData.students;
+            console.log('✅ Fetched students:', studentsData.students?.length);
+          }
+        } catch (err) {
+          console.log('⚠️ Could not fetch students:', err);
+        }
+      }
+
+      // إرسال الطلب للسيرفر
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/ai-assistant`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${publicAnonKey}`,
+          },
+          body: JSON.stringify({
+            message: query,
+            userInfo: contextData.userInfo,
+            courses: contextData.courses,
+            registrations: contextData.registrations,
+            requests: contextData.requests,
+            students: contextData.students,
+            language: language,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to get AI response');
+      }
+
+      const data = await response.json();
+      console.log('✅ AI Response received:', data.type);
+
+      return {
+        response: data.response,
+        type: data.type,
+      };
+    } catch (error) {
+      console.error('❌ Error getting AI response:', error);
+      return {
+        response: language === 'ar'
+          ? '😔 عذراً، حدث خطأ في الاتصال. يرجى المحاولة مرة أخرى.'
+          : '😔 Sorry, a connection error occurred. Please try again.',
+        type: 'error',
+      };
+    }
   };
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     const text = inputValue.trim();
-    if (!text) return;
+    if (!text || isTyping) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -138,18 +239,40 @@ export const AIAssistant: React.FC = () => {
     setInputValue('');
     setIsTyping(true);
 
-    setTimeout(() => {
-      const response = getResponse(text);
+    try {
+      const { response, type } = await getAIResponse(text);
+      
       const botMessage: Message = {
         id: (Date.now() + 1).toString(),
         text: response,
         isUser: false,
         timestamp: new Date(),
+        type,
       };
 
       setMessages((prev) => [...prev, botMessage]);
+    } catch (error) {
+      console.error('Error in handleSendMessage:', error);
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        text: language === 'ar'
+          ? '😔 عذراً، حدث خطأ. يرجى المحاولة مرة أخرى.'
+          : '😔 Sorry, an error occurred. Please try again.',
+        isUser: false,
+        timestamp: new Date(),
+        type: 'error',
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
       setIsTyping(false);
-    }, 1000);
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
   };
 
   // إخفاء الزر العائم إذا كان المستخدم في صفحة المساعد الذكي
@@ -158,20 +281,24 @@ export const AIAssistant: React.FC = () => {
   }
 
   return (
-    <div className="fixed bottom-4 right-4 z-50">
-      {/* نافذة المحادثة - تظهر فقط عند isOpen === true */}
+    <div className="fixed bottom-4 right-4 z-50" dir="ltr">
+      {/* نافذة المحادثة */}
       {isOpen && (
-        <Card className="w-80 md:w-96 mb-4 p-4 shadow-2xl">
+        <Card className="w-80 md:w-96 mb-4 p-4 shadow-2xl animate-fade-in border-2 border-kku-green/20 dark:border-primary/20">
           <div className="flex justify-between items-center mb-4">
             <div className="flex items-center gap-2">
-              <div className="bg-gradient-to-r from-[#184A2C] to-purple-700 p-2 rounded-full">
+              <div className="bg-gradient-to-br from-kku-green to-kku-gold p-2 rounded-full relative">
                 <Bot className="h-5 w-5 text-white" />
+                <div className="absolute -top-1 -right-1 h-3 w-3 bg-green-500 rounded-full animate-pulse"></div>
               </div>
               <div>
-                <h3 className="font-bold">
-                  {language === 'ar' ? 'المساعد الذكي' : 'AI Assistant'}
-                </h3>
-                <p className="text-xs text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-bold">
+                    {language === 'ar' ? 'المساعد الذكي' : 'AI Assistant'}
+                  </h3>
+                  <Sparkles className="h-3 w-3 text-kku-gold" />
+                </div>
+                <p className="text-xs text-green-500">
                   {language === 'ar' ? 'متصل الآن' : 'Online now'}
                 </p>
               </div>
@@ -180,7 +307,7 @@ export const AIAssistant: React.FC = () => {
               variant="ghost"
               size="sm"
               onClick={() => setIsOpen(false)}
-              className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
+              className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
             >
               <X className="h-5 w-5" />
             </Button>
@@ -197,43 +324,68 @@ export const AIAssistant: React.FC = () => {
                 >
                   <div className="flex items-start gap-2 max-w-[85%]">
                     {!message.isUser && (
-                      <div className="bg-gradient-to-r from-[#184A2C] to-purple-700 p-1.5 rounded-full flex-shrink-0 mt-1">
-                        <Bot className="h-4 w-4 text-white" />
+                      <div className="bg-gradient-to-br from-kku-green to-kku-gold p-1.5 rounded-full flex-shrink-0 mt-1">
+                        <Bot className="h-3 w-3 text-white" />
                       </div>
                     )}
+                    
                     <div
-                      className={`px-4 py-2 rounded-2xl whitespace-pre-line ${
+                      className={`px-4 py-2 rounded-2xl ${
                         message.isUser
-                          ? 'bg-gradient-to-r from-[#184A2C] to-purple-700 text-white rounded-br-sm'
-                          : 'bg-gray-100 dark:bg-gray-800 rounded-bl-sm'
+                          ? 'bg-kku-green text-white dark:bg-primary'
+                          : message.type === 'error'
+                          ? 'bg-red-50 text-red-900 dark:bg-red-900/20 dark:text-red-200'
+                          : 'bg-muted'
                       }`}
                     >
-                      {message.text}
+                      <p className="text-sm whitespace-pre-wrap break-words">
+                        {message.text}
+                      </p>
+                      {!message.isUser && message.type === 'ai' && (
+                        <Badge 
+                          variant="secondary" 
+                          className="mt-2 text-xs bg-kku-gold/20 text-kku-gold border-none"
+                        >
+                          <Sparkles className="h-2 w-2 mr-1" />
+                          {language === 'ar' ? 'مدعوم بالذكاء الاصطناعي' : 'AI Powered'}
+                        </Badge>
+                      )}
+                      {!message.isUser && message.type === 'fallback' && (
+                        <Badge 
+                          variant="outline" 
+                          className="mt-2 text-xs"
+                        >
+                          {language === 'ar' ? 'رد تلقائي' : 'Auto Response'}
+                        </Badge>
+                      )}
                     </div>
+                    
                     {message.isUser && (
-                      <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-1.5 rounded-full flex-shrink-0 mt-1">
-                        <User className="h-4 w-4 text-white" />
+                      <div className="bg-kku-green/20 p-1.5 rounded-full flex-shrink-0 mt-1">
+                        <User className="h-3 w-3 text-kku-green dark:text-primary" />
                       </div>
                     )}
                   </div>
                 </div>
               ))}
+              
               {isTyping && (
                 <div className="flex justify-start">
                   <div className="flex items-start gap-2">
-                    <div className="bg-gradient-to-r from-[#184A2C] to-purple-700 p-1.5 rounded-full">
-                      <Bot className="h-4 w-4 text-white" />
+                    <div className="bg-gradient-to-br from-kku-green to-kku-gold p-1.5 rounded-full">
+                      <Bot className="h-3 w-3 text-white" />
                     </div>
-                    <div className="px-4 py-2 rounded-2xl bg-gray-100 dark:bg-gray-800 rounded-bl-sm">
+                    <div className="bg-muted px-4 py-2 rounded-2xl">
                       <div className="flex gap-1">
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                        <div className="w-2 h-2 bg-kku-green dark:bg-primary rounded-full animate-bounce"></div>
+                        <div className="w-2 h-2 bg-kku-green dark:bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                        <div className="w-2 h-2 bg-kku-green dark:bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                       </div>
                     </div>
                   </div>
                 </div>
               )}
+              
               <div ref={messagesEndRef} />
             </div>
           </ScrollArea>
@@ -242,31 +394,49 @@ export const AIAssistant: React.FC = () => {
             <Input
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-              placeholder={language === 'ar' ? 'اكتب رسالتك...' : 'Type a message...'}
-              className="flex-1"
+              onKeyPress={handleKeyPress}
+              placeholder={language === 'ar' ? 'اكتب سؤالك هنا...' : 'Type your question...'}
               disabled={isTyping}
+              className="flex-1"
+              dir={language === 'ar' ? 'rtl' : 'ltr'}
             />
             <Button
               onClick={handleSendMessage}
-              disabled={isTyping || !inputValue.trim()}
-              className="bg-gradient-to-r from-[#184A2C] to-purple-700 hover:from-[#0e2818] hover:to-purple-900"
+              disabled={!inputValue.trim() || isTyping}
+              className="bg-kku-green hover:bg-kku-green/90 dark:bg-primary dark:hover:bg-primary/90"
             >
-              <Send className="h-5 w-5" />
+              {isTyping ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
             </Button>
           </div>
+
+          <p className="text-xs text-muted-foreground text-center mt-2">
+            {language === 'ar' 
+              ? '💡 يمكنني مساعدتك في أي استفسار أكاديمي'
+              : '💡 I can help with any academic inquiry'
+            }
+          </p>
         </Card>
       )}
 
-      {/* الزر العائم - يظهر فقط عند isOpen === false */}
-      {!isOpen && (
-        <Button
-          onClick={() => setIsOpen(true)}
-          className="h-14 w-14 rounded-full bg-gradient-to-r from-[#184A2C] to-purple-700 hover:from-[#0e2818] hover:to-purple-900 shadow-2xl hover:scale-110 transition-transform"
-        >
-          <MessageCircle className="h-6 w-6" />
-        </Button>
-      )}
+      {/* زر فتح المحادثة */}
+      <Button
+        onClick={() => setIsOpen(!isOpen)}
+        className="h-14 w-14 rounded-full shadow-lg bg-gradient-to-br from-kku-green to-kku-gold hover:scale-110 transition-transform duration-300 border-2 border-white dark:border-gray-800"
+        size="icon"
+      >
+        {isOpen ? (
+          <X className="h-6 w-6 text-white" />
+        ) : (
+          <div className="relative">
+            <MessageCircle className="h-6 w-6 text-white" />
+            <Sparkles className="h-3 w-3 text-white absolute -top-1 -right-1 animate-pulse" />
+          </div>
+        )}
+      </Button>
     </div>
   );
 };

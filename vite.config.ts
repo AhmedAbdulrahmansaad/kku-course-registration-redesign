@@ -24,7 +24,6 @@
         '@radix-ui/react-toggle@1.1.2': '@radix-ui/react-toggle',
         '@radix-ui/react-toggle-group@1.1.2': '@radix-ui/react-toggle-group',
         '@radix-ui/react-tabs@1.1.3': '@radix-ui/react-tabs',
-        '@radix-ui/react-switch@1.1.3': '@radix-ui/react-switch',
         '@radix-ui/react-slot@1.1.2': '@radix-ui/react-slot',
         '@radix-ui/react-slider@1.2.3': '@radix-ui/react-slider',
         '@radix-ui/react-separator@1.1.2': '@radix-ui/react-separator',

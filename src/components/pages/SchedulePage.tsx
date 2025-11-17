@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../contexts/AppContext';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
-import { Calendar, Clock, MapPin, Users, Printer } from 'lucide-react';
+import { Calendar, Clock, MapPin, Users, Printer, Loader2, AlertCircle, Building2 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
 import { toast } from 'sonner@2.0.3';
@@ -14,141 +14,109 @@ import {
   generateExportFooter 
 } from '../../utils/exportUtils';
 import { DownloadButton } from '../DownloadButton';
-
-interface ScheduleItem {
-  day: string;
-  day_ar: string;
-  time: string;
-  course_code: string;
-  course_name: string;
-  course_name_ar: string;
-  location: string;
-  location_ar: string;
-  instructor: string;
-  instructor_ar: string;
-  color: string;
-}
-
-const scheduleData: ScheduleItem[] = [
-  {
-    day: 'Sunday',
-    day_ar: 'الأحد',
-    time: '10:00-11:30',
-    course_code: 'CS301',
-    course_name: 'Data Structures',
-    course_name_ar: 'هياكل البيانات',
-    location: 'Building A, Room 201',
-    location_ar: 'المبنى أ، قاعة 201',
-    instructor: 'Dr. Ahmed AlQahtani',
-    instructor_ar: 'د. أحمد القحطاني',
-    color: '#184A2C',
-  },
-  {
-    day: 'Sunday',
-    day_ar: 'الأحد',
-    time: '13:00-14:30',
-    course_code: 'CS310',
-    course_name: 'Software Engineering',
-    course_name_ar: 'هندسة البرمجيات',
-    location: 'Building A, Room 305',
-    location_ar: 'المبنى أ، قاعة 305',
-    instructor: 'Dr. Mohammed AlGhamdi',
-    instructor_ar: 'د. محمد الغامدي',
-    color: '#D4AF37',
-  },
-  {
-    day: 'Monday',
-    day_ar: 'الاثنين',
-    time: '10:00-11:30',
-    course_code: 'IS320',
-    course_name: 'Systems Analysis',
-    course_name_ar: 'تحليل وتصميم النظم',
-    location: 'Building C, Room 210',
-    location_ar: 'المبنى ج، قاعة 210',
-    instructor: 'Dr. Sara AlOtaibi',
-    instructor_ar: 'د. سارة العتيبي',
-    color: '#22C55E',
-  },
-  {
-    day: 'Monday',
-    day_ar: 'الاثنين',
-    time: '13:00-14:30',
-    course_code: 'CS350',
-    course_name: 'Artificial Intelligence',
-    course_name_ar: 'الذكاء الاصطناعي',
-    location: 'Building A, Room 401',
-    location_ar: 'المبنى أ، قاعة 401',
-    instructor: 'Dr. Nasser AlBahhar',
-    instructor_ar: 'د. نصر البحار',
-    color: '#8B5CF6',
-  },
-  {
-    day: 'Tuesday',
-    day_ar: 'الثلاثاء',
-    time: '10:00-11:30',
-    course_code: 'CS301',
-    course_name: 'Data Structures',
-    course_name_ar: 'هياكل البيانات',
-    location: 'Building A, Room 201',
-    location_ar: 'المبنى أ، قاعة 201',
-    instructor: 'Dr. Ahmed AlQahtani',
-    instructor_ar: 'د. أحمد القحطاني',
-    color: '#184A2C',
-  },
-  {
-    day: 'Tuesday',
-    day_ar: 'الثلاثاء',
-    time: '13:00-14:30',
-    course_code: 'CS310',
-    course_name: 'Software Engineering',
-    course_name_ar: 'هندسة البرمجيات',
-    location: 'Building A, Room 305',
-    location_ar: 'المبنى أ، قاعة 305',
-    instructor: 'Dr. Mohammed AlGhamdi',
-    instructor_ar: 'د. محمد الغامدي',
-    color: '#D4AF37',
-  },
-  {
-    day: 'Wednesday',
-    day_ar: 'الأربعاء',
-    time: '10:00-11:30',
-    course_code: 'IS320',
-    course_name: 'Systems Analysis',
-    course_name_ar: 'تحليل وتصميم النظم',
-    location: 'Building C, Room 210',
-    location_ar: 'المبنى ج، قاعة 210',
-    instructor: 'Dr. Sara AlOtaibi',
-    instructor_ar: 'د. سارة العتيبي',
-    color: '#22C55E',
-  },
-  {
-    day: 'Wednesday',
-    day_ar: 'الأربعاء',
-    time: '13:00-14:30',
-    course_code: 'CS350',
-    course_name: 'Artificial Intelligence',
-    course_name_ar: 'الذكاء الاصطناعي',
-    location: 'Building A, Room 401',
-    location_ar: 'المبنى أ، قاعة 401',
-    instructor: 'Dr. Nasser AlBahhar',
-    instructor_ar: 'د. نصر البحار',
-    color: '#8B5CF6',
-  },
-];
-
-const timeSlots = [
-  '08:00-09:30',
-  '10:00-11:30',
-  '12:00-13:30',
-  '13:00-14:30',
-  '15:00-16:30',
-];
-
-const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'];
-const days_ar = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'];
+import { projectId, publicAnonKey } from '../../utils/supabase/info';
+import {
+  generateSchedule,
+  getCourseAtSlot,
+  getCoursesForDay,
+  getTotalCreditHours,
+  getUniqueInstructors,
+  days,
+  days_ar,
+  timeSlots,
+  type ScheduleSlot
+} from '../../utils/scheduleUtils';
 
 export const SchedulePage: React.FC = () => {
-  const { language } = useApp();
+  const { language, userInfo } = useApp();
+  const [scheduleData, setScheduleData] = useState<ScheduleSlot[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [totalCourses, setTotalCourses] = useState(0);
+  const [totalHours, setTotalHours] = useState(0);
+  const [totalInstructors, setTotalInstructors] = useState(0);
+
+  useEffect(() => {
+    fetchSchedule();
+  }, [userInfo]);
+
+  const fetchSchedule = async () => {
+    try {
+      setLoading(true);
+      console.log('📅 Fetching schedule for user:', userInfo);
+
+      if (!userInfo?.id) {
+        console.warn('⚠️ No user ID found');
+        setScheduleData([]);
+        return;
+      }
+
+      const accessToken = localStorage.getItem('access_token');
+      if (!accessToken) {
+        console.warn('⚠️ No access token found');
+        setScheduleData([]);
+        return;
+      }
+
+      // جلب المقررات المسجلة للطالب
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/student/registrations`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      const result = await response.json();
+      console.log('📚 Registrations response:', result);
+
+      if (response.ok && result.registrations) {
+        const approvedRegistrations = result.registrations.filter(
+          (reg: any) => reg.status === 'approved'
+        );
+
+        console.log('✅ Approved registrations:', approvedRegistrations.length);
+
+        if (approvedRegistrations.length === 0) {
+          setScheduleData([]);
+          setTotalCourses(0);
+          setTotalHours(0);
+          setTotalInstructors(0);
+          return;
+        }
+
+        // استخراج المقررات من التسجيلات المقبولة
+        const approvedCourses = approvedRegistrations
+          .map((reg: any) => reg.course)
+          .filter((course: any) => course != null);
+
+        console.log('📚 Approved courses for schedule:', approvedCourses);
+
+        // توليد الجدول الدراسي تلقائياً
+        const schedule = generateSchedule(approvedCourses);
+        console.log('🗓️ Generated schedule:', schedule);
+
+        setScheduleData(schedule);
+        setTotalCourses(approvedCourses.length);
+        setTotalHours(getTotalCreditHours(approvedCourses));
+        setTotalInstructors(getUniqueInstructors(approvedCourses).length);
+      } else {
+        console.log('ℹ️ No approved registrations found');
+        setScheduleData([]);
+        setTotalCourses(0);
+        setTotalHours(0);
+        setTotalInstructors(0);
+      }
+    } catch (error: any) {
+      console.error('❌ Error fetching schedule:', error);
+      toast.error(
+        language === 'ar' ? 'فشل في تحميل الجدول الدراسي' : 'Failed to load schedule'
+      );
+      setScheduleData([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getScheduleForDayAndTime = (day: string, time: string) => {
     return scheduleData.find(item => item.day === day && item.time === time);
@@ -156,7 +124,7 @@ export const SchedulePage: React.FC = () => {
 
   const downloadPDF = () => {
     try {
-      const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+      const userInfoData = userInfo || {};
       
       // Generate schedule table HTML
       const scheduleHTML = `
@@ -178,7 +146,7 @@ export const SchedulePage: React.FC = () => {
                       <td style="background-color: #f0fdf4; padding: 8px;">
                         <strong>${scheduleItem.course_code}</strong><br/>
                         <span style="font-size: 0.9em;">${language === 'ar' ? scheduleItem.course_name_ar : scheduleItem.course_name}</span><br/>
-                        <span style="font-size: 0.85em; color: #666;">📍 ${scheduleItem.location}</span><br/>
+                        <span style="font-size: 0.85em; color: #666;">📍 ${language === 'ar' ? `${scheduleItem.building_ar}، ${scheduleItem.room_ar}` : `${scheduleItem.building}, ${scheduleItem.room}`}</span><br/>
                         <span style="font-size: 0.85em; color: #666;">👨‍🏫 ${language === 'ar' ? scheduleItem.instructor_ar : scheduleItem.instructor}</span>
                       </td>
                     `;
@@ -198,9 +166,9 @@ export const SchedulePage: React.FC = () => {
           language === 'ar' ? 'الجدول الدراسي' : 'Course Schedule',
           language === 'ar' ? 'الفصل الدراسي 2025-2026' : 'Semester 2025-2026',
           {
-            name: userInfo.name || 'Student Name',
-            id: userInfo.id || 'Student ID',
-            major: userInfo.major || (language === 'ar' ? 'نظم المعلومات الإدارية' : 'Management Information Systems'),
+            name: userInfoData.name || 'Student Name',
+            id: userInfoData.id || 'Student ID',
+            major: userInfoData.major || (language === 'ar' ? 'نظم المعلومات الإدارية' : 'Management Information Systems'),
             level: language === 'ar' ? 'المستوى الحالي' : 'Current Level'
           },
           language
@@ -263,7 +231,7 @@ export const SchedulePage: React.FC = () => {
 
   const handleDownload = async (format: 'pdf' | 'word' | 'excel') => {
     try {
-      const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+      const userInfoData = userInfo || {};
       
       // Generate schedule table HTML
       const scheduleHTML = `
@@ -285,7 +253,7 @@ export const SchedulePage: React.FC = () => {
                       <td style="background-color: #f0fdf4; padding: 8px;">
                         <strong>${scheduleItem.course_code}</strong><br/>
                         <span style="font-size: 0.9em;">${language === 'ar' ? scheduleItem.course_name_ar : scheduleItem.course_name}</span><br/>
-                        <span style="font-size: 0.85em; color: #666;">📍 ${scheduleItem.location}</span><br/>
+                        <span style="font-size: 0.85em; color: #666;">📍 ${language === 'ar' ? `${scheduleItem.building_ar}، ${scheduleItem.room_ar}` : `${scheduleItem.building}, ${scheduleItem.room}`}</span><br/>
                         <span style="font-size: 0.85em; color: #666;">👨‍🏫 ${language === 'ar' ? scheduleItem.instructor_ar : scheduleItem.instructor}</span>
                       </td>
                     `;
@@ -338,9 +306,9 @@ export const SchedulePage: React.FC = () => {
           language === 'ar' ? 'الجدول الدراسي' : 'Course Schedule',
           language === 'ar' ? 'الفصل الدراسي 2025-2026' : 'Semester 2025-2026',
           {
-            name: userInfo.name || 'Student Name',
-            id: userInfo.id || 'Student ID',
-            major: userInfo.major || (language === 'ar' ? 'نظم المعلومات الإدارية' : 'Management Information Systems'),
+            name: userInfoData.name || 'Student Name',
+            id: userInfoData.id || 'Student ID',
+            major: userInfoData.major || (language === 'ar' ? 'نظم المعلومات الإدارية' : 'Management Information Systems'),
             level: language === 'ar' ? 'المستوى الحالي' : 'Current Level'
           },
           language
@@ -378,6 +346,54 @@ export const SchedulePage: React.FC = () => {
   const handlePrint = () => {
     window.print();
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <Loader2 className="h-12 w-12 animate-spin text-kku-green dark:text-primary mx-auto" />
+          <p className="text-lg text-muted-foreground">
+            {language === 'ar' ? 'جاري تحميل الجدول الدراسي...' : 'Loading schedule...'}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (scheduleData.length === 0) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center p-4">
+        <Card className="max-w-md w-full p-8 text-center space-y-6">
+          <div className="flex justify-center">
+            <div className="p-4 bg-orange-100 dark:bg-orange-900/20 rounded-full">
+              <AlertCircle className="h-16 w-16 text-orange-600 dark:text-orange-400" />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <h2 className="text-2xl font-bold">
+              {language === 'ar' ? 'لا توجد مقررات مسجلة' : 'No Registered Courses'}
+            </h2>
+            <p className="text-muted-foreground">
+              {language === 'ar'
+                ? 'لم تقم بتسجيل أي مقررات بعد. يرجى الذهاب إلى صفحة المقررات لتسجيل مقرراتك.'
+                : 'You have not registered for any courses yet. Please go to the Courses page to register for courses.'}
+            </p>
+          </div>
+
+          <Button
+            onClick={() => {
+              const event = new CustomEvent('navigateTo', { detail: 'courses' });
+              window.dispatchEvent(event);
+            }}
+            className="w-full bg-gradient-to-r from-[#184A2C] to-emerald-700"
+          >
+            {language === 'ar' ? 'تسجيل المقررات' : 'Register Courses'}
+          </Button>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 pb-8">
@@ -420,7 +436,7 @@ export const SchedulePage: React.FC = () => {
           <div className="inline-flex p-4 bg-kku-green/10 dark:bg-primary/10 rounded-full mb-3">
             <Calendar className="h-8 w-8 text-kku-green dark:text-primary" />
           </div>
-          <div className="text-3xl font-bold text-kku-green dark:text-primary mb-1">4</div>
+          <div className="text-3xl font-bold text-kku-green dark:text-primary mb-1">{totalCourses}</div>
           <div className="text-sm text-muted-foreground">
             {language === 'ar' ? 'مقررات مسجلة' : 'Registered Courses'}
           </div>
@@ -430,7 +446,7 @@ export const SchedulePage: React.FC = () => {
           <div className="inline-flex p-4 bg-kku-gold/20 rounded-full mb-3">
             <Clock className="h-8 w-8 text-kku-gold" />
           </div>
-          <div className="text-3xl font-bold text-kku-gold mb-1">12</div>
+          <div className="text-3xl font-bold text-kku-gold mb-1">{totalHours}</div>
           <div className="text-sm text-muted-foreground">
             {language === 'ar' ? 'ساعة معتمدة' : 'Credit Hours'}
           </div>
@@ -440,7 +456,7 @@ export const SchedulePage: React.FC = () => {
           <div className="inline-flex p-4 bg-green-500/10 rounded-full mb-3">
             <Users className="h-8 w-8 text-green-500" />
           </div>
-          <div className="text-3xl font-bold text-green-500 mb-1">4</div>
+          <div className="text-3xl font-bold text-green-500 mb-1">{totalInstructors}</div>
           <div className="text-sm text-muted-foreground">
             {language === 'ar' ? 'أساتذة' : 'Instructors'}
           </div>

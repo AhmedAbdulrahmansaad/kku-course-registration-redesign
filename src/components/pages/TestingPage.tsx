@@ -17,15 +17,9 @@ import {
   Globe,
   Clock,
   TrendingUp,
-  FileCheck,
-  UserPlus,
-  Key,
-  Mail,
-  Loader2
+  FileCheck
 } from 'lucide-react';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
-import { toast } from 'sonner@2.0.3';
-import { projectId, publicAnonKey } from '../../utils/supabase/info';
 
 interface TestCase {
   id: string;
@@ -41,8 +35,6 @@ interface TestCase {
 export const TestingPage: React.FC = () => {
   const { language } = useApp();
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [creatingAccounts, setCreatingAccounts] = useState(false);
-  const [demoAccountsResult, setDemoAccountsResult] = useState<any>(null);
 
   const testCategories = [
     { id: 'all', name: 'All Tests', nameAr: 'جميع الاختبارات', icon: TestTube2, color: 'text-blue-500' },
@@ -372,55 +364,6 @@ export const TestingPage: React.FC = () => {
   const warningTests = testCases.filter(t => t.status === 'warning').length;
   const successRate = Math.round((passedTests / testCases.length) * 100);
 
-  // إنشاء الحسابات التجريبية
-  const handleCreateDemoAccounts = async () => {
-    setCreatingAccounts(true);
-    setDemoAccountsResult(null);
-    
-    try {
-      console.log('🧪 إنشاء الحسابات التجريبية...');
-      
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/create-demo-accounts`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${publicAnonKey}`,
-          },
-        }
-      );
-
-      const result = await response.json();
-
-      if (response.ok) {
-        console.log('✅ نتائج إنشاء الحسابات:', result);
-        setDemoAccountsResult(result);
-        
-        const createdCount = result.results.filter((r: any) => r.status === 'created').length;
-        const existingCount = result.results.filter((r: any) => r.status === 'already_exists').length;
-        
-        toast.success(
-          language === 'ar' 
-            ? `✅ تم إنشاء ${createdCount} حساب جديد، ${existingCount} حساب موجود مسبقاً` 
-            : `✅ Created ${createdCount} new accounts, ${existingCount} already existed`,
-          { duration: 5000 }
-        );
-      } else {
-        throw new Error(result.error || 'Failed to create demo accounts');
-      }
-    } catch (error: any) {
-      console.error('❌ خطأ في إنشاء الحسابات:', error);
-      toast.error(
-        language === 'ar' 
-          ? `❌ حدث خطأ: ${error.message}` 
-          : `❌ Error: ${error.message}`
-      );
-    } finally {
-      setCreatingAccounts(false);
-    }
-  };
-
   return (
     <div className="space-y-12 relative">
       {/* Background Effects */}
@@ -501,122 +444,6 @@ export const TestingPage: React.FC = () => {
           );
         })}
       </div>
-
-      {/* Demo Accounts Section */}
-      <Card className="p-8 bg-gradient-to-br from-blue-500/10 to-purple-500/10 border-blue-500/20 relative z-10">
-        <div className="space-y-6">
-          <div className="flex items-start gap-4">
-            <UserPlus className="h-12 w-12 text-blue-500 flex-shrink-0" />
-            <div className="flex-1">
-              <h3 className="text-2xl font-bold mb-3 text-blue-500">
-                {language === 'ar' ? '🧪 إنشاء حسابات تجريبية' : '🧪 Create Demo Accounts'}
-              </h3>
-              <p className="text-muted-foreground leading-relaxed mb-4">
-                {language === 'ar'
-                  ? 'انقر على الزر أدناه لإنشاء حسابات تجريبية جاهزة للاختبار. سيتم إنشاء 4 حسابات مختلفة (طالبان، مشرف، مدير) لاختبار جميع وظائف النظام.'
-                  : 'Click the button below to create ready-to-test demo accounts. 4 different accounts will be created (2 students, supervisor, admin) to test all system functions.'}
-              </p>
-              
-              <Button
-                onClick={handleCreateDemoAccounts}
-                disabled={creatingAccounts}
-                className="bg-blue-500 hover:bg-blue-600 text-white gap-2"
-                size="lg"
-              >
-                {creatingAccounts ? (
-                  <>
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                    {language === 'ar' ? 'جاري الإنشاء...' : 'Creating...'}
-                  </>
-                ) : (
-                  <>
-                    <UserPlus className="h-5 w-5" />
-                    {language === 'ar' ? 'إنشاء الحسابات التجريبية' : 'Create Demo Accounts'}
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-
-          {/* Results Display */}
-          {demoAccountsResult && (
-            <div className="mt-6 p-6 bg-white/50 dark:bg-background/50 rounded-lg border-2 border-blue-500/30 animate-fade-in">
-              <h4 className="text-lg font-bold mb-4 flex items-center gap-2">
-                <CheckCircle2 className="h-5 w-5 text-green-500" />
-                {language === 'ar' ? 'نتائج إنشاء الحسابات' : 'Account Creation Results'}
-              </h4>
-              
-              <div className="space-y-3">
-                {demoAccountsResult.results.map((result: any, index: number) => (
-                  <div
-                    key={index}
-                    className={`p-4 rounded-lg border-2 ${
-                      result.status === 'created'
-                        ? 'bg-green-500/10 border-green-500/30'
-                        : result.status === 'already_exists'
-                        ? 'bg-yellow-500/10 border-yellow-500/30'
-                        : 'bg-red-500/10 border-red-500/30'
-                    }`}
-                  >
-                    <div className="flex items-start gap-3">
-                      {result.status === 'created' ? (
-                        <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5" />
-                      ) : result.status === 'already_exists' ? (
-                        <AlertTriangle className="h-5 w-5 text-yellow-500 mt-0.5" />
-                      ) : (
-                        <XCircle className="h-5 w-5 text-red-500 mt-0.5" />
-                      )}
-                      
-                      <div className="flex-1 space-y-2">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <Badge variant="outline" className="font-mono text-xs">
-                            {result.role === 'student' ? '👨‍🎓 طالب' : result.role === 'supervisor' ? '👔 مشرف' : '⚙️ مدير'}
-                          </Badge>
-                          <span className="font-medium">{result.email}</span>
-                        </div>
-                        
-                        {result.status === 'created' && result.credentials && (
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
-                            <div className="flex items-center gap-2 p-2 bg-white/50 dark:bg-background/50 rounded border">
-                              <Mail className="h-4 w-4 text-blue-500" />
-                              <span className="text-sm font-mono">{result.credentials.email}</span>
-                            </div>
-                            <div className="flex items-center gap-2 p-2 bg-white/50 dark:bg-background/50 rounded border">
-                              <Key className="h-4 w-4 text-green-500" />
-                              <span className="text-sm font-mono">{result.credentials.password}</span>
-                            </div>
-                          </div>
-                        )}
-                        
-                        <p className="text-sm text-muted-foreground">
-                          {result.status === 'created'
-                            ? language === 'ar'
-                              ? '✅ تم إنشاء الحساب بنجاح'
-                              : '✅ Account created successfully'
-                            : result.status === 'already_exists'
-                            ? language === 'ar'
-                              ? '⚠️ الحساب موجود بالفعل'
-                              : '⚠️ Account already exists'
-                            : result.message}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-4 p-4 bg-blue-500/10 rounded-lg border border-blue-500/30">
-                <p className="text-sm">
-                  <strong>{language === 'ar' ? '💡 ملاحظة:' : '💡 Note:'}</strong>{' '}
-                  {language === 'ar'
-                    ? 'يمكنك الآن تسجيل الدخول باستخدام أي من الحسابات أعلاه لاختبار النظام. كلمات المرور معروضة لأغراض الاختبار فقط.'
-                    : 'You can now log in using any of the accounts above to test the system. Passwords are shown for testing purposes only.'}
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-      </Card>
 
       {/* Test Cases Table */}
       <Card className="p-6 relative z-10">

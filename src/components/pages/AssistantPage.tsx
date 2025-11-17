@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
 import { toast } from 'sonner';
+import { projectId, publicAnonKey } from '../../utils/supabase/info';
 
 interface Message {
   id: string;
@@ -45,8 +46,8 @@ export const AssistantPage: React.FC = () => {
     {
       id: '0',
       text: language === 'ar' 
-        ? '👋 مرحباً! أنا مساعدك الذكي الحقيقي!\n\n✨ أستطيع مساعدتك في:\n\n📚 تسجيل المقررات:\n• "أضف مقرر نظم المعلومات"\n• "سجلني في مقرر قواعد البيانات"\n• "احذف مقرر الإحصاء"\n\n📅 الجداول والتقارير:\n• "اعرض جدولي"\n• "اذهب إلى التقارير"\n• "افتح صفحة المستندات"\n\n🔍 البحث والاستفسار:\n• "ابحث عن مقررات المستوى الثالث"\n• "ما هي المقررات المتاحة؟"\n\nجرب الآن وسأنفذ طلبك فوراً! 🚀'
-        : '👋 Welcome! I am your real smart assistant!\n\n✨ I can help you with:\n\n📚 Course Registration:\n• "Add MIS course"\n• "Register me in Database course"\n• "Delete Statistics course"\n\n📅 Schedules and Reports:\n• "Show my schedule"\n• "Go to reports"\n• "Open documents page"\n\n🔍 Search and Inquiry:\n• "Search for level 3 courses"\n• "What courses are available?"\n\nTry now and I will execute your request immediately! 🚀',
+        ? '👋 مرحباً! أنا مساعدك الذكي المدعوم بالذكاء الاصطناعي الحقيقي!\n\n✨ أستطيع مساعدتك في:\n\n📚 تسجيل المقررات والاستفسار عنها\n📅 الجداول والتقارير\n🔍 البحث والاستكشاف\n💡 الإجابة على جميع أسئلتك\n\nجرب سؤالاً الآن! 🚀'
+        : '👋 Welcome! I am your AI-powered smart assistant!\n\n✨ I can help you with:\n\n📚 Course registration and inquiries\n📅 Schedules and reports\n🔍 Search and exploration\n💡 Answer all your questions\n\nTry asking now! 🚀',
       isUser: false,
       timestamp: new Date(),
     },
@@ -130,7 +131,7 @@ export const AssistantPage: React.FC = () => {
       
       return {
         response: language === 'ar'
-          ? `✅ تم حذف المقرر بنجا��:\n\n📚 ${courseToDelete.nameAr}\n📋 الرمز: ${courseToDelete.code}\n\nتم إزالته من جدولك الدراسي.`
+          ? `✅ تم حذف المقرر بنجا:\n\n📚 ${courseToDelete.nameAr}\n📋 الرمز: ${courseToDelete.code}\n\nتم إزالته من جدولك الدراسي.`
           : `✅ Course deleted successfully:\n\n📚 ${courseToDelete.nameEn}\n📋 Code: ${courseToDelete.code}\n\nRemoved from your schedule.`,
         action: 'success'
       };

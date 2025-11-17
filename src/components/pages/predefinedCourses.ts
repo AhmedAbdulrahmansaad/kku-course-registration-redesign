@@ -1,0 +1,597 @@
+/**
+ * قائمة المقررات الجاهزة للإضافة السريعة
+ * Predefined Courses List for Quick Add
+ */
+
+export interface PredefinedCourse {
+  code: string;
+  name_ar: string;
+  name_en: string;
+  credit_hours: number;
+  level: number;
+  department: string;
+  description_ar: string;
+  description_en: string;
+  prerequisites: string[];
+  semester: string;
+  instructor: string;
+  course_type: 'mandatory' | 'elective';
+}
+
+export const PREDEFINED_COURSES: PredefinedCourse[] = [
+  // المستوى الأول
+  {
+    code: 'ARAB 101',
+    name_ar: 'المهارات اللغوية',
+    name_en: 'Arabic Language Skills',
+    credit_hours: 3,
+    level: 1,
+    department: 'MIS',
+    description_ar: 'تطوير مهارات الاتصال الشفهي والكتابي باللغة العربية',
+    description_en: 'Develop oral and written communication skills in Arabic',
+    prerequisites: [],
+    semester: 'Fall/Spring',
+    instructor: 'هيئة التدريس',
+    course_type: 'mandatory'
+  },
+  {
+    code: 'ISLM 101',
+    name_ar: 'الثقافة الإسلامية',
+    name_en: 'Islamic Culture',
+    credit_hours: 2,
+    level: 1,
+    department: 'MIS',
+    description_ar: 'دراسة أساسيات الثقافة الإسلامية ومبادئ الشريعة الإسلامية',
+    description_en: 'Study the fundamentals of Islamic culture and principles of Islamic Sharia',
+    prerequisites: [],
+    semester: 'Fall/Spring',
+    instructor: 'هيئة التدريس',
+    course_type: 'mandatory'
+  },
+  {
+    code: 'ENGL 101',
+    name_ar: 'اللغة الإنجليزية 1',
+    name_en: 'English Language 1',
+    credit_hours: 3,
+    level: 1,
+    department: 'MIS',
+    description_ar: 'تطوير المهارات الأساسية في اللغة الإنجليزية',
+    description_en: 'Develop basic English language skills',
+    prerequisites: [],
+    semester: 'Fall/Spring',
+    instructor: 'هيئة التدريس',
+    course_type: 'mandatory'
+  },
+  {
+    code: 'MATH 101',
+    name_ar: 'الرياضيات للأعمال',
+    name_en: 'Business Mathematics',
+    credit_hours: 3,
+    level: 1,
+    department: 'MIS',
+    description_ar: 'المبادئ الرياضية الأساسية وتطبيقاتها في إدارة الأعمال',
+    description_en: 'Basic mathematical principles and their applications in business',
+    prerequisites: [],
+    semester: 'Fall/Spring',
+    instructor: 'هيئة التدريس',
+    course_type: 'mandatory'
+  },
+  {
+    code: 'MGMT 101',
+    name_ar: 'مبادئ الإدارة',
+    name_en: 'Principles of Management',
+    credit_hours: 3,
+    level: 1,
+    department: 'MIS',
+    description_ar: 'المفاهيم الأساسية للإدارة ووظائفها',
+    description_en: 'Basic management concepts and functions',
+    prerequisites: [],
+    semester: 'Fall/Spring',
+    instructor: 'هيئة التدريس',
+    course_type: 'mandatory'
+  },
+
+  // المستوى الثاني
+  {
+    code: 'STAT 201',
+    name_ar: 'الإحصاء التطبيقي',
+    name_en: 'Applied Statistics',
+    credit_hours: 3,
+    level: 2,
+    department: 'MIS',
+    description_ar: 'المفاهيم الإحصائية الأساسية وتطبيقاتها',
+    description_en: 'Basic statistical concepts and applications',
+    prerequisites: ['MATH 101'],
+    semester: 'Fall/Spring',
+    instructor: 'هيئة التدريس',
+    course_type: 'mandatory'
+  },
+  {
+    code: 'ACCT 201',
+    name_ar: 'مبادئ المحاسبة',
+    name_en: 'Principles of Accounting',
+    credit_hours: 3,
+    level: 2,
+    department: 'MIS',
+    description_ar: 'المبادئ الأساسية للمحاسبة المالية',
+    description_en: 'Basic principles of financial accounting',
+    prerequisites: [],
+    semester: 'Fall/Spring',
+    instructor: 'هيئة التدريس',
+    course_type: 'mandatory'
+  },
+  {
+    code: 'CS 201',
+    name_ar: 'مقدمة في الحاسب الآلي',
+    name_en: 'Introduction to Computers',
+    credit_hours: 3,
+    level: 2,
+    department: 'MIS',
+    description_ar: 'المفاهيم الأساسية للحاسب الآلي وتطبيقاته',
+    description_en: 'Basic computer concepts and applications',
+    prerequisites: [],
+    semester: 'Fall/Spring',
+    instructor: 'هيئة التدريس',
+    course_type: 'mandatory'
+  },
+  {
+    code: 'ECON 201',
+    name_ar: 'مبادئ الاقتصاد الجزئي',
+    name_en: 'Principles of Microeconomics',
+    credit_hours: 3,
+    level: 2,
+    department: 'MIS',
+    description_ar: 'المبادئ الأساسية للاقتصاد الجزئي',
+    description_en: 'Basic principles of microeconomics',
+    prerequisites: [],
+    semester: 'Fall/Spring',
+    instructor: 'هيئة التدريس',
+    course_type: 'mandatory'
+  },
+  {
+    code: 'ENGL 201',
+    name_ar: 'اللغة الإنجليزية 2',
+    name_en: 'English Language 2',
+    credit_hours: 3,
+    level: 2,
+    department: 'MIS',
+    description_ar: 'تطوير المهارات المتقدمة في اللغة الإنجليزية',
+    description_en: 'Develop advanced English language skills',
+    prerequisites: ['ENGL 101'],
+    semester: 'Fall/Spring',
+    instructor: 'هيئة التدريس',
+    course_type: 'mandatory'
+  },
+
+  // المستوى الثالث
+  {
+    code: 'MIS 301',
+    name_ar: 'مقدمة في نظم المعلومات الإدارية',
+    name_en: 'Introduction to MIS',
+    credit_hours: 3,
+    level: 3,
+    department: 'MIS',
+    description_ar: 'مقدمة شاملة لنظم المعلومات الإدارية ودورها في المنظمات',
+    description_en: 'Comprehensive introduction to MIS and its role in organizations',
+    prerequisites: ['CS 201'],
+    semester: 'Fall',
+    instructor: 'د. محمد رشيد',
+    course_type: 'mandatory'
+  },
+  {
+    code: 'MIS 302',
+    name_ar: 'قواعد البيانات',
+    name_en: 'Database Management',
+    credit_hours: 3,
+    level: 3,
+    department: 'MIS',
+    description_ar: 'تصميم وإدارة قواعد البيانات العلائقية',
+    description_en: 'Design and management of relational databases',
+    prerequisites: ['CS 201'],
+    semester: 'Spring',
+    instructor: 'هيئة التدريس',
+    course_type: 'mandatory'
+  },
+  {
+    code: 'MIS 303',
+    name_ar: 'البرمجة التطبيقية',
+    name_en: 'Application Programming',
+    credit_hours: 3,
+    level: 3,
+    department: 'MIS',
+    description_ar: 'مبادئ البرمجة وتطوير التطبيقات',
+    description_en: 'Programming principles and application development',
+    prerequisites: ['CS 201'],
+    semester: 'Fall',
+    instructor: 'هيئة التدريس',
+    course_type: 'mandatory'
+  },
+  {
+    code: 'MKT 301',
+    name_ar: 'مبادئ التسويق',
+    name_en: 'Principles of Marketing',
+    credit_hours: 3,
+    level: 3,
+    department: 'MIS',
+    description_ar: 'المفاهيم الأساسية للتسويق',
+    description_en: 'Basic marketing concepts',
+    prerequisites: ['MGMT 101'],
+    semester: 'Fall/Spring',
+    instructor: 'هيئة التدريس',
+    course_type: 'mandatory'
+  },
+  {
+    code: 'FIN 301',
+    name_ar: 'الإدارة المالية',
+    name_en: 'Financial Management',
+    credit_hours: 3,
+    level: 3,
+    department: 'MIS',
+    description_ar: 'مبادئ الإدارة المالية واتخاذ القرارات المالية',
+    description_en: 'Principles of financial management and financial decision-making',
+    prerequisites: ['ACCT 201'],
+    semester: 'Fall/Spring',
+    instructor: 'هيئة التدريس',
+    course_type: 'mandatory'
+  },
+
+  // المستوى الرابع
+  {
+    code: 'MIS 401',
+    name_ar: 'تحليل وتصميم النظم',
+    name_en: 'Systems Analysis and Design',
+    credit_hours: 3,
+    level: 4,
+    department: 'MIS',
+    description_ar: 'منهجيات تحليل وتصميم نظم المعلومات',
+    description_en: 'Methodologies for information systems analysis and design',
+    prerequisites: ['MIS 301'],
+    semester: 'Fall',
+    instructor: 'د. محمد رشيد',
+    course_type: 'mandatory'
+  },
+  {
+    code: 'MIS 402',
+    name_ar: 'الشبكات وأمن المعلومات',
+    name_en: 'Networks and Information Security',
+    credit_hours: 3,
+    level: 4,
+    department: 'MIS',
+    description_ar: 'مبادئ الشبكات وأمن المعلومات',
+    description_en: 'Network principles and information security',
+    prerequisites: ['CS 201'],
+    semester: 'Spring',
+    instructor: 'هيئة التدريس',
+    course_type: 'mandatory'
+  },
+  {
+    code: 'MIS 403',
+    name_ar: 'إدارة المشاريع',
+    name_en: 'Project Management',
+    credit_hours: 3,
+    level: 4,
+    department: 'MIS',
+    description_ar: 'مبادئ إدارة المشاريع التقنية',
+    description_en: 'Principles of IT project management',
+    prerequisites: ['MGMT 101'],
+    semester: 'Fall/Spring',
+    instructor: 'هيئة التدريس',
+    course_type: 'mandatory'
+  },
+  {
+    code: 'MIS 404',
+    name_ar: 'نظم دعم القرار',
+    name_en: 'Decision Support Systems',
+    credit_hours: 3,
+    level: 4,
+    department: 'MIS',
+    description_ar: 'نظم دعم القرار والذكاء الاصطناعي',
+    description_en: 'Decision support systems and artificial intelligence',
+    prerequisites: ['MIS 301'],
+    semester: 'Spring',
+    instructor: 'هيئة التدريس',
+    course_type: 'mandatory'
+  },
+  {
+    code: 'HRM 401',
+    name_ar: 'إدارة الموارد البشرية',
+    name_en: 'Human Resource Management',
+    credit_hours: 3,
+    level: 4,
+    department: 'MIS',
+    description_ar: 'مبادئ إدارة الموارد البشرية',
+    description_en: 'Principles of human resource management',
+    prerequisites: ['MGMT 101'],
+    semester: 'Fall/Spring',
+    instructor: 'هيئة التدريس',
+    course_type: 'mandatory'
+  },
+
+  // المستوى الخامس
+  {
+    code: 'MIS 501',
+    name_ar: 'إدارة البيانات الضخمة',
+    name_en: 'Big Data Management',
+    credit_hours: 3,
+    level: 5,
+    department: 'MIS',
+    description_ar: 'إدارة وتحليل البيانات الضخمة',
+    description_en: 'Big data management and analytics',
+    prerequisites: ['MIS 302'],
+    semester: 'Fall',
+    instructor: 'هيئة التدريس',
+    course_type: 'mandatory'
+  },
+  {
+    code: 'MIS 502',
+    name_ar: 'التجارة الإلكترونية',
+    name_en: 'E-Commerce',
+    credit_hours: 3,
+    level: 5,
+    department: 'MIS',
+    description_ar: 'مبادئ التجارة الإلكترونية وتطبيقاتها',
+    description_en: 'E-commerce principles and applications',
+    prerequisites: ['MIS 301'],
+    semester: 'Spring',
+    instructor: 'هيئة التدريس',
+    course_type: 'mandatory'
+  },
+  {
+    code: 'MIS 503',
+    name_ar: 'نظم تخطيط موارد المؤسسات',
+    name_en: 'Enterprise Resource Planning',
+    credit_hours: 3,
+    level: 5,
+    department: 'MIS',
+    description_ar: 'نظم ERP وتطبيقاتها في المنظمات',
+    description_en: 'ERP systems and their applications in organizations',
+    prerequisites: ['MIS 401'],
+    semester: 'Fall',
+    instructor: 'هيئة التدريس',
+    course_type: 'mandatory'
+  },
+  {
+    code: 'MIS 504',
+    name_ar: 'الحوسبة السحابية',
+    name_en: 'Cloud Computing',
+    credit_hours: 3,
+    level: 5,
+    department: 'MIS',
+    description_ar: 'مبادئ الحوسبة السحابية وتطبيقاتها',
+    description_en: 'Cloud computing principles and applications',
+    prerequisites: ['MIS 402'],
+    semester: 'Spring',
+    instructor: 'هيئة التدريس',
+    course_type: 'elective'
+  },
+  {
+    code: 'MIS 505',
+    name_ar: 'إدارة علاقات العملاء',
+    name_en: 'Customer Relationship Management',
+    credit_hours: 3,
+    level: 5,
+    department: 'MIS',
+    description_ar: 'نظم CRM وإدارة علاقات العملاء',
+    description_en: 'CRM systems and customer relationship management',
+    prerequisites: ['MKT 301'],
+    semester: 'Spring',
+    instructor: 'هيئة التدريس',
+    course_type: 'elective'
+  },
+
+  // المستوى السادس
+  {
+    code: 'MIS 601',
+    name_ar: 'إدارة نظم المعلومات الاستراتيجية',
+    name_en: 'Strategic Information Systems Management',
+    credit_hours: 3,
+    level: 6,
+    department: 'MIS',
+    description_ar: 'الإدارة الاستراتيجية لنظم المعلومات',
+    description_en: 'Strategic management of information systems',
+    prerequisites: ['MIS 401'],
+    semester: 'Fall',
+    instructor: 'د. محمد رشيد',
+    course_type: 'mandatory'
+  },
+  {
+    code: 'MIS 602',
+    name_ar: 'ذكاء الأعمال',
+    name_en: 'Business Intelligence',
+    credit_hours: 3,
+    level: 6,
+    department: 'MIS',
+    description_ar: 'تقنيات ذكاء الأعمال وتحليل البيانات',
+    description_en: 'Business intelligence techniques and data analytics',
+    prerequisites: ['MIS 501'],
+    semester: 'Fall',
+    instructor: 'هيئة التدريس',
+    course_type: 'mandatory'
+  },
+  {
+    code: 'MIS 603',
+    name_ar: 'إدارة سلسلة التوريد',
+    name_en: 'Supply Chain Management',
+    credit_hours: 3,
+    level: 6,
+    department: 'MIS',
+    description_ar: 'إدارة سلسلة التوريد ونظم المعلومات',
+    description_en: 'Supply chain management and information systems',
+    prerequisites: ['MIS 503'],
+    semester: 'Spring',
+    instructor: 'هيئة التدريس',
+    course_type: 'elective'
+  },
+  {
+    code: 'MIS 604',
+    name_ar: 'تطوير تطبيقات الأجهزة المحمولة',
+    name_en: 'Mobile Application Development',
+    credit_hours: 3,
+    level: 6,
+    department: 'MIS',
+    description_ar: 'تطوير تطبيقات الهواتف الذكية',
+    description_en: 'Smartphone application development',
+    prerequisites: ['MIS 303'],
+    semester: 'Spring',
+    instructor: 'هيئة التدريس',
+    course_type: 'elective'
+  },
+  {
+    code: 'MIS 605',
+    name_ar: 'الأمن السيبراني',
+    name_en: 'Cybersecurity',
+    credit_hours: 3,
+    level: 6,
+    department: 'MIS',
+    description_ar: 'أساسيات الأمن السيبراني وحماية المعلومات',
+    description_en: 'Cybersecurity fundamentals and information protection',
+    prerequisites: ['MIS 402'],
+    semester: 'Fall',
+    instructor: 'هيئة التدريس',
+    course_type: 'elective'
+  },
+
+  // المستوى السابع
+  {
+    code: 'MIS 701',
+    name_ar: 'مشروع التخرج (1)',
+    name_en: 'Graduation Project (1)',
+    credit_hours: 3,
+    level: 7,
+    department: 'MIS',
+    description_ar: 'بداية مشروع التخرج وجمع المتطلبات',
+    description_en: 'Graduation project initiation and requirements gathering',
+    prerequisites: ['MIS 601'],
+    semester: 'Fall',
+    instructor: 'د. محمد رشيد',
+    course_type: 'mandatory'
+  },
+  {
+    code: 'MIS 702',
+    name_ar: 'الذكاء الاصطناعي في الأعمال',
+    name_en: 'AI in Business',
+    credit_hours: 3,
+    level: 7,
+    department: 'MIS',
+    description_ar: 'تطبيقات الذكاء الاصطناعي في إدارة الأعمال',
+    description_en: 'AI applications in business management',
+    prerequisites: ['MIS 404'],
+    semester: 'Fall',
+    instructor: 'هيئة التدريس',
+    course_type: 'elective'
+  },
+  {
+    code: 'MIS 703',
+    name_ar: 'تحليلات البيانات المتقدمة',
+    name_en: 'Advanced Data Analytics',
+    credit_hours: 3,
+    level: 7,
+    department: 'MIS',
+    description_ar: 'تقنيات متقدمة لتحليل البيانات',
+    description_en: 'Advanced data analytics techniques',
+    prerequisites: ['MIS 602'],
+    semester: 'Fall',
+    instructor: 'هيئة التدريس',
+    course_type: 'elective'
+  },
+  {
+    code: 'MIS 704',
+    name_ar: 'إنترنت الأشياء',
+    name_en: 'Internet of Things (IoT)',
+    credit_hours: 3,
+    level: 7,
+    department: 'MIS',
+    description_ar: 'مبادئ إنترنت الأشياء وتطبيقاته',
+    description_en: 'IoT principles and applications',
+    prerequisites: ['MIS 402'],
+    semester: 'Spring',
+    instructor: 'هيئة التدريس',
+    course_type: 'elective'
+  },
+  {
+    code: 'LAW 701',
+    name_ar: 'القانون التجاري الإلكتروني',
+    name_en: 'E-Commerce Law',
+    credit_hours: 2,
+    level: 7,
+    department: 'MIS',
+    description_ar: 'القوانين والأنظمة المتعلقة بالتجارة الإلكترونية',
+    description_en: 'Laws and regulations related to e-commerce',
+    prerequisites: ['MIS 502'],
+    semester: 'Spring',
+    instructor: 'هيئة التدريس',
+    course_type: 'elective'
+  },
+
+  // المستوى الثامن
+  {
+    code: 'MIS 801',
+    name_ar: 'مشروع التخرج (2)',
+    name_en: 'Graduation Project (2)',
+    credit_hours: 3,
+    level: 8,
+    department: 'MIS',
+    description_ar: 'إكمال مشروع التخرج والعرض النهائي',
+    description_en: 'Graduation project completion and final presentation',
+    prerequisites: ['MIS 701'],
+    semester: 'Spring',
+    instructor: 'د. محمد رشيد',
+    course_type: 'mandatory'
+  },
+  {
+    code: 'MIS 802',
+    name_ar: 'التدريب الميداني',
+    name_en: 'Internship',
+    credit_hours: 6,
+    level: 8,
+    department: 'MIS',
+    description_ar: 'تدريب عملي في منظمة حقيقية',
+    description_en: 'Practical training in a real organization',
+    prerequisites: ['MIS 601'],
+    semester: 'Spring',
+    instructor: 'منسق التدريب',
+    course_type: 'mandatory'
+  },
+  {
+    code: 'MIS 803',
+    name_ar: 'البلوك تشين وتطبيقاته',
+    name_en: 'Blockchain and Applications',
+    credit_hours: 3,
+    level: 8,
+    department: 'MIS',
+    description_ar: 'تقنية البلوك تشين وتطبيقاتها في الأعمال',
+    description_en: 'Blockchain technology and its business applications',
+    prerequisites: ['MIS 402'],
+    semester: 'Fall',
+    instructor: 'هيئة التدريس',
+    course_type: 'elective'
+  },
+  {
+    code: 'MIS 804',
+    name_ar: 'إدارة التغيير التنظيمي',
+    name_en: 'Organizational Change Management',
+    credit_hours: 3,
+    level: 8,
+    department: 'MIS',
+    description_ar: 'إدارة التغيير في المنظمات الرقمية',
+    description_en: 'Change management in digital organizations',
+    prerequisites: ['MIS 601'],
+    semester: 'Fall',
+    instructor: 'هيئة التدريس',
+    course_type: 'elective'
+  },
+  {
+    code: 'ENTR 801',
+    name_ar: 'ريادة الأعمال التقنية',
+    name_en: 'Technology Entrepreneurship',
+    credit_hours: 3,
+    level: 8,
+    department: 'MIS',
+    description_ar: 'بناء وإدارة المشاريع التقنية الناشئة',
+    description_en: 'Building and managing technology startups',
+    prerequisites: ['MGMT 101'],
+    semester: 'Fall/Spring',
+    instructor: 'هيئة التدريس',
+    course_type: 'elective'
+  }
+];

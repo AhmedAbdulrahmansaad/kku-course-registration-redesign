@@ -68,12 +68,11 @@ export const CoursesPage: React.FC = () => {
   const fetchCourses = async () => {
     try {
       setLoading(true);
-      console.log('📚 Fetching courses for level:', userInfo?.level);
+      console.log('📚 Fetching courses for user:', userInfo);
 
-      // جلب المقررات حسب مستوى الطالب
-      const level = userInfo?.level || 1;
+      // جلب جميع المقررات بدون تصفية بـ level في البداية
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/courses?level=${level}&department=MIS`,
+        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/courses?department=MIS`,
         {
           headers: {
             Authorization: `Bearer ${publicAnonKey}`,
@@ -81,19 +80,35 @@ export const CoursesPage: React.FC = () => {
         }
       );
 
+      console.log('📚 Response status:', response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Server response error:', errorText);
+        throw new Error(`Server error: ${response.status} - ${errorText}`);
+      }
+
       const result = await response.json();
       console.log('📚 Courses response:', result);
 
-      if (response.ok) {
-        setCourses(result.courses || []);
-        console.log('✅ Loaded', result.courses?.length || 0, 'courses');
-      } else {
+      if (result.courses) {
+        const coursesData = result.courses || [];
+        console.log('✅ Loaded', coursesData.length, 'courses');
+        setCourses(coursesData);
+      } else if (result.error) {
+        console.error('❌ Failed to load courses:', result.error);
         throw new Error(result.error);
+      } else {
+        console.error('❌ Unexpected response format:', result);
+        throw new Error('Unexpected response format from server');
       }
     } catch (error: any) {
-      console.error('Error fetching courses:', error);
+      console.error('❌ Error fetching courses:', error);
+      console.error('❌ Error details:', error.message, error.stack);
       toast.error(
-        language === 'ar' ? 'فشل في تحميل المقررات' : 'Failed to load courses'
+        language === 'ar' 
+          ? `فشل في تحميل المقررات: ${error.message}` 
+          : `Failed to load courses: ${error.message}`
       );
     } finally {
       setLoading(false);
@@ -314,52 +329,52 @@ export const CoursesPage: React.FC = () => {
       {/* Courses Grid */}
       <div className="grid gap-6">
         {filteredCourses.map((course) => (
-          <Card key={course.course_id} className="p-6 hover:shadow-lg transition-shadow">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-start gap-4 flex-1">
-                <div className="bg-gradient-to-br from-[#184A2C] to-emerald-700 p-4 rounded-xl text-white flex-shrink-0">
-                  <BookOpen className="h-8 w-8" />
+          <Card key={course.course_id} className="p-4 sm:p-6 hover:shadow-lg transition-shadow">
+            <div className="flex flex-col lg:flex-row items-start justify-between gap-4">
+              <div className="flex flex-col sm:flex-row items-start gap-4 flex-1 w-full">
+                <div className="bg-gradient-to-br from-[#184A2C] to-emerald-700 p-3 sm:p-4 rounded-xl text-white flex-shrink-0">
+                  <BookOpen className="h-6 w-6 sm:h-8 sm:w-8" />
                 </div>
                 
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <Badge variant="secondary" className="text-sm font-mono">
+                <div className="flex-1 w-full">
+                  <div className="flex items-center gap-2 sm:gap-3 mb-2 flex-wrap">
+                    <Badge variant="secondary" className="text-xs sm:text-sm font-mono">
                       {course.code}
                     </Badge>
-                    <Badge variant="outline">
+                    <Badge variant="outline" className="text-xs sm:text-sm">
                       {course.credit_hours} {language === 'ar' ? 'ساعات' : 'hours'}
                     </Badge>
-                    <Badge className="bg-[#184A2C]">
+                    <Badge className="bg-[#184A2C] text-xs sm:text-sm">
                       {language === 'ar' ? `المستوى ${course.level}` : `Level ${course.level}`}
                     </Badge>
                   </div>
 
-                  <h3 className="text-2xl font-bold mb-2">
+                  <h3 className="text-xl sm:text-2xl font-bold mb-2">
                     {language === 'ar' ? course.name_ar : course.name_en}
                   </h3>
 
                   {(course.description_ar || course.description_en) && (
-                    <p className="text-muted-foreground mb-4">
+                    <p className="text-sm sm:text-base text-muted-foreground mb-4">
                       {language === 'ar' ? course.description_ar : course.description_en}
                     </p>
                   )}
 
-                  <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                  <div className="flex flex-wrap gap-3 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
                     {course.instructor && (
                       <div className="flex items-center gap-2">
-                        <Users className="h-4 w-4" />
+                        <Users className="h-3 w-3 sm:h-4 sm:w-4" />
                         <span>{course.instructor}</span>
                       </div>
                     )}
                     {course.semester && (
                       <div className="flex items-center gap-2">
-                        <Calendar className="h-4 w-4" />
+                        <Calendar className="h-3 w-3 sm:h-4 sm:w-4" />
                         <span>{course.semester}</span>
                       </div>
                     )}
                     {course.prerequisites && course.prerequisites.length > 0 && (
                       <div className="flex items-center gap-2 text-orange-600">
-                        <AlertCircle className="h-4 w-4" />
+                        <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4" />
                         <span>
                           {language === 'ar'
                             ? `متطلب سابق: ${course.prerequisites.join(', ')}`
@@ -371,11 +386,11 @@ export const CoursesPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-2 w-full lg:w-auto">
                 <Button
                   onClick={() => handleRegister(course)}
                   disabled={registering === course.course_id}
-                  className="bg-gradient-to-r from-[#184A2C] to-emerald-700 hover:from-[#0e2818] hover:to-emerald-800"
+                  className="bg-gradient-to-r from-[#184A2C] to-emerald-700 hover:from-[#0e2818] hover:to-emerald-800 w-full lg:w-auto text-sm sm:text-base"
                 >
                   {registering === course.course_id ? (
                     <>

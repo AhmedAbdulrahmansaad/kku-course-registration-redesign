@@ -20,6 +20,16 @@ import {
 import { toast } from 'sonner@2.0.3';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
 import { projectId, publicAnonKey } from '../../utils/supabase/info';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../ui/dialog';
+import { Label } from '../ui/label';
+import { Textarea } from '../ui/textarea';
 
 interface Registration {
   registration_id: string;
@@ -41,6 +51,9 @@ export const SupervisorDashboard: React.FC = () => {
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('pending');
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [selectedRegistration, setSelectedRegistration] = useState<string | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
 
   useEffect(() => {
     fetchRegistrations();
@@ -146,6 +159,7 @@ export const SupervisorDashboard: React.FC = () => {
           body: JSON.stringify({
             registrationId,
             status: 'rejected',
+            reason: rejectionReason,
           }),
         }
       );
@@ -396,7 +410,10 @@ export const SupervisorDashboard: React.FC = () => {
                       {language === 'ar' ? 'قبول' : 'Approve'}
                     </Button>
                     <Button
-                      onClick={() => handleReject(reg.registration_id)}
+                      onClick={() => {
+                        setSelectedRegistration(reg.registration_id);
+                        setRejectDialogOpen(true);
+                      }}
                       variant="outline"
                       className="border-red-500 text-red-600 hover:bg-red-50"
                     >
@@ -410,6 +427,55 @@ export const SupervisorDashboard: React.FC = () => {
           ))}
         </div>
       )}
+
+      {/* Reject Dialog */}
+      <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>
+              {language === 'ar' ? 'تأكيد رفض التسجيل' : 'Confirm Registration Rejection'}
+            </DialogTitle>
+            <DialogDescription>
+              {language === 'ar' 
+                ? 'يرجى كتابة سبب رفضك للتسجيل قبل رفضه.'
+                : 'Please provide a reason for rejecting the registration.'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Label htmlFor="reason">
+              {language === 'ar' ? 'سبب الرفض' : 'Rejection Reason'}
+            </Label>
+            <Textarea
+              id="reason"
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              placeholder={language === 'ar' ? 'أدخل السبب هنا...' : 'Enter reason here...'}
+              className="h-20"
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setRejectDialogOpen(false)}
+            >
+              {language === 'ar' ? 'إلغاء' : 'Cancel'}
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                if (selectedRegistration) {
+                  handleReject(selectedRegistration);
+                }
+                setRejectDialogOpen(false);
+              }}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {language === 'ar' ? 'رفض' : 'Reject'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

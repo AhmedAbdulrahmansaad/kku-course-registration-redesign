@@ -270,3 +270,229 @@ body[dir="rtl"] {
     font-size: 16px;
   }
 }
+
+/* ========================================= */
+/* 📱 RESPONSIVE DESIGN SYSTEM */
+/* ========================================= */
+
+/* Container Responsive Widths */
+.container {
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+/* Mobile First - Extra Small (xs) < 640px */
+@media (max-width: 639px) {
+  .container {
+    max-width: 100%;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+  
+  /* Responsive Text Sizes */
+  .text-responsive-xs { font-size: 0.75rem; }
+  .text-responsive-sm { font-size: 0.875rem; }
+  .text-responsive-base { font-size: 0.875rem; }
+  .text-responsive-lg { font-size: 1rem; }
+  .text-responsive-xl { font-size: 1.125rem; }
+  .text-responsive-2xl { font-size: 1.25rem; }
+  .text-responsive-3xl { font-size: 1.5rem; }
+  
+  /* Responsive Spacing */
+  .spacing-responsive { gap: 0.5rem; }
+  .padding-responsive { padding: 0.75rem; }
+  .margin-responsive { margin: 0.5rem; }
+  
+  /* Hide on mobile */
+  .hide-mobile { display: none !important; }
+  
+  /* Stack items vertically on mobile */
+  .stack-mobile { 
+    flex-direction: column !important; 
+    width: 100% !important;
+  }
+  
+  /* Full width on mobile */
+  .full-width-mobile { 
+    width: 100% !important; 
+    max-width: 100% !important;
+  }
+  
+  /* Smaller buttons on mobile */
+  .btn-mobile {
+    padding: 0.5rem 0.75rem !important;
+    font-size: 0.875rem !important;
+  }
+}
+
+/* Small (sm) 640px - 767px */
+@media (min-width: 640px) {
+  .container {
+    max-width: 640px;
+  }
+  
+  .show-mobile { display: none !important; }
+}
+
+/* Medium (md) 768px - 1023px - Tablet */
+@media (min-width: 768px) {
+  .container {
+    max-width: 768px;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  
+  /* Responsive Text Sizes */
+  .text-responsive-xs { font-size: 0.75rem; }
+  .text-responsive-sm { font-size: 0.875rem; }
+  .text-responsive-base { font-size: 1rem; }
+  .text-responsive-lg { font-size: 1.125rem; }
+  .text-responsive-xl { font-size: 1.25rem; }
+  .text-responsive-2xl { font-size: 1.5rem; }
+  .text-responsive-3xl { font-size: 1.875rem; }
+  
+  /* Responsive Spacing */
+  .spacing-responsive { gap: 0.75rem; }
+  .padding-responsive { padding: 1rem; }
+  .margin-responsive { margin: 0.75rem; }
+  
+  /* Hide on tablet */
+  .hide-tablet { display: none !important; }
+}
+
+/* Large (lg) 1024px - 1279px */
+@media (min-width: 1024px) {
+  .container {
+    max-width: 1024px;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+  
+  .hide-mobile { display: initial !important; }
+  .hide-tablet { display: initial !important; }
+}
+
+/* Extra Large (xl) 1280px - 1535px - Desktop */
+@media (min-width: 1280px) {
+  .container {
+    max-width: 1280px;
+  }
+  
+  /* Responsive Text Sizes */
+  .text-responsive-xs { font-size: 0.75rem; }
+  .text-responsive-sm { font-size: 0.875rem; }
+  .text-responsive-base { font-size: 1rem; }
+  .text-responsive-lg { font-size: 1.125rem; }
+  .text-responsive-xl { font-size: 1.25rem; }
+  .text-responsive-2xl { font-size: 1.5rem; }
+  .text-responsive-3xl { font-size: 2.25rem; }
+  
+  /* Responsive Spacing */
+  .spacing-responsive { gap: 1rem; }
+  .padding-responsive { padding: 1.5rem; }
+  .margin-responsive { margin: 1rem; }
+}
+
+/* 2X Large (2xl) >= 1536px - Large Desktop */
+@media (min-width: 1536px) {
+  .container {
+    max-width: 1536px;
+  }
+}
+
+/* Grid Responsive System */
+.grid-responsive {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .grid-responsive-sm-2 { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (min-width: 768px) {
+  .grid-responsive-md-2 { grid-template-columns: repeat(2, 1fr); }
+  .grid-responsive-md-3 { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (min-width: 1024px) {
+  .grid-responsive-lg-3 { grid-template-columns: repeat(3, 1fr); }
+  .grid-responsive-lg-4 { grid-template-columns: repeat(4, 1fr); }
+}
+
+/* Flex Responsive System */
+.flex-responsive {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .flex-responsive {
+    flex-direction: row;
+  }
+}
+
+/* Card Responsive Padding */
+.card-responsive {
+  padding: 1rem;
+}
+
+@media (min-width: 768px) {
+  .card-responsive {
+    padding: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .card-responsive {
+    padding: 2rem;
+  }
+}
+
+/* Responsive Overflow */
+.overflow-responsive {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Ensure tables are responsive */
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.table-responsive table {
+  min-width: 600px;
+  width: 100%;
+}
+
+/* Mobile Navigation Helper */
+.mobile-nav-open {
+  overflow: hidden;
+}
+
+/* Responsive Images */
+img, svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Prevent horizontal scroll */
+html, body {
+  overflow-x: hidden;
+  width: 100%;
+}
+
+/* Touch-friendly tap targets */
+@media (max-width: 767px) {
+  button, a, input, select, textarea {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}

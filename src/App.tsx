@@ -30,7 +30,11 @@ import { AdminDashboard } from './components/pages/AdminDashboard';
 import { ManageCoursesPage } from './components/pages/ManageCoursesPage';
 import { ManageStudentsPage } from './components/pages/ManageStudentsPage';
 import { ManageSupervisorsPage } from './components/pages/ManageSupervisorsPage';
+import { SystemSettingsPage } from './components/pages/SystemSettingsPage';
+import { MessagesPage } from './components/pages/MessagesPage';
+import { AnnouncementsPage } from './components/pages/AnnouncementsPage';
 import { AccessAgreementPage } from './components/pages/AccessAgreementPage';
+import { TranscriptPage } from './components/pages/TranscriptPage';
 import { Toaster } from './components/ui/sonner';
 import { ArrowLeft, ArrowRight, Home } from 'lucide-react';
 import { Button } from './components/ui/button';
@@ -40,7 +44,7 @@ const AppContent: React.FC = () => {
 
   // تحديد المسارات مع صلاحياتها
   const routes = {
-    // صفحة التعهد (أول صفحة - إلزامية)
+    // صفحة التعهد (أول صفحة - إزامية)
     accessAgreement: { component: <AccessAgreementPage />, public: true },
     
     // صفحات عامة (لا تحتاج تسجيل دخول)
@@ -57,42 +61,47 @@ const AppContent: React.FC = () => {
     login: { component: <LoginPage />, public: true },
     signup: { component: <SignUpPage />, public: true },
 
-    // صفحات الطلاب (تحتاج تسجيل دخول)
+    // ============================================
+    // 🎓 صفحات الطالب فقط
+    // ============================================
     studentDashboard: {
       component: <StudentDashboard />,
       requireAuth: true,
       allowedRoles: ['student'],
     },
-    curriculum: {
-      component: <CurriculumPage />,
-      requireAuth: true,
-    },
     courses: {
       component: <CoursesPage />,
       requireAuth: true,
+      allowedRoles: ['student'],
     },
     schedule: {
       component: <SchedulePage />,
       requireAuth: true,
+      allowedRoles: ['student'],
     },
     reports: {
       component: <ReportsPage />,
       requireAuth: true,
+      allowedRoles: ['student', 'admin'], // السماح للمدير بالوصول
     },
-    documents: {
-      component: <DocumentsPage />,
+    curriculum: {
+      component: <CurriculumPage />,
       requireAuth: true,
+      allowedRoles: ['student', 'admin'], // السماح للمدير بالوصول
     },
     assistant: {
       component: <AssistantPage />,
       requireAuth: true,
+      allowedRoles: ['student', 'admin'], // السماح للمدير بالوصول
     },
 
-    // صفحات المشرف (تحتاج تسجيل دخول ودور مشرف)
+    // ============================================
+    // 👨‍🏫 صفحات المشرف فقط
+    // ============================================
     supervisorDashboard: {
       component: <SupervisorDashboard />,
       requireAuth: true,
-      allowedRoles: ['supervisor', 'admin'],
+      allowedRoles: ['supervisor'],
     },
     requests: {
       component: <RequestsPage />,
@@ -100,7 +109,9 @@ const AppContent: React.FC = () => {
       allowedRoles: ['supervisor', 'admin'],
     },
 
-    // صفحات المدير (تحتاج تسجيل دخول ودور مدير)
+    // ============================================
+    // 👨‍💼 صفحات المدير فقط
+    // ============================================
     adminDashboard: {
       component: <AdminDashboard />,
       requireAuth: true,
@@ -121,7 +132,55 @@ const AppContent: React.FC = () => {
       requireAuth: true,
       allowedRoles: ['admin'],
     },
+    systemSettings: {
+      component: <SystemSettingsPage />,
+      requireAuth: true,
+      allowedRoles: ['admin'],
+    },
+    messages: {
+      component: <MessagesPage />,
+      requireAuth: true,
+      allowedRoles: ['admin'],
+    },
+    announcements: {
+      component: <AnnouncementsPage />,
+      requireAuth: true,
+      allowedRoles: ['admin'],
+    },
+    documents: {
+      component: <DocumentsPage />,
+      requireAuth: true,
+      allowedRoles: ['admin'],
+    },
+    transcript: {
+      component: <TranscriptPage />,
+      requireAuth: true,
+      allowedRoles: ['admin'],
+    },
   };
+
+  // التحقق من صلاحيات الوصول للصفحة الحالية
+  React.useEffect(() => {
+    if (!isLoggedIn || !userInfo) return;
+
+    const currentRoute = routes[currentPage as keyof typeof routes];
+    if (!currentRoute || currentRoute.public) return;
+
+    // التحقق من الصلاحيات
+    const userRole = userInfo.role || 'student';
+    if (currentRoute.allowedRoles && currentRoute.allowedRoles.length > 0) {
+      if (!currentRoute.allowedRoles.includes(userRole as any)) {
+        // توجيه المستخدم للصفحة المناسبة
+        if (userRole === 'admin') {
+          setCurrentPage('adminDashboard');
+        } else if (userRole === 'supervisor') {
+          setCurrentPage('supervisorDashboard');
+        } else {
+          setCurrentPage('studentDashboard');
+        }
+      }
+    }
+  }, [currentPage, isLoggedIn, userInfo, setCurrentPage]);
 
   const currentRoute = routes[currentPage as keyof typeof routes] || routes.home;
 
@@ -129,7 +188,9 @@ const AppContent: React.FC = () => {
     // تحديد الصفحة المناسبة للعودة إليها حسب دور المستخدم
     if (isLoggedIn && userInfo) {
       const userRole = userInfo.role || 'student';
-      if (userRole === 'supervisor' || userRole === 'admin') {
+      if (userRole === 'admin') {
+        setCurrentPage('adminDashboard');
+      } else if (userRole === 'supervisor') {
         setCurrentPage('supervisorDashboard');
       } else {
         setCurrentPage('studentDashboard');
@@ -142,7 +203,9 @@ const AppContent: React.FC = () => {
   const handleHome = () => {
     if (isLoggedIn && userInfo) {
       const userRole = userInfo.role || 'student';
-      if (userRole === 'supervisor' || userRole === 'admin') {
+      if (userRole === 'admin') {
+        setCurrentPage('adminDashboard');
+      } else if (userRole === 'supervisor') {
         setCurrentPage('supervisorDashboard');
       } else {
         setCurrentPage('studentDashboard');
@@ -160,30 +223,32 @@ const AppContent: React.FC = () => {
       {!hideLayout && <Header />}
       {!hideLayout && <Navigation />}
 
-      <main className="flex-1 container mx-auto px-4 py-8 animate-fade-in">
+      <main className="flex-1 container mx-auto px-2 sm:px-4 py-4 sm:py-6 md:py-8 animate-fade-in">
         {/* Navigation Buttons */}
         {!hideLayout && currentPage !== 'home' && currentPage !== 'login' && (
-          <div className="flex items-center gap-2 mb-6">
+          <div className="flex items-center gap-2 mb-4 sm:mb-6 flex-wrap">
             <Button
               variant="ghost"
               onClick={handleBack}
-              className="gap-2 hover:bg-muted transition-all duration-300 hover:scale-105"
+              className="gap-1 sm:gap-2 hover:bg-muted transition-all duration-300 hover:scale-105 text-xs sm:text-sm"
+              size="sm"
             >
               {language === 'ar' ? (
-                <ArrowRight className="h-4 w-4" />
+                <ArrowRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               ) : (
-                <ArrowLeft className="h-4 w-4" />
+                <ArrowLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               )}
-              {t('back')}
+              <span className="hidden sm:inline">{t('back')}</span>
             </Button>
 
             <Button
               variant="ghost"
               onClick={handleHome}
-              className="gap-2 hover:bg-muted transition-all duration-300 hover:scale-105"
+              className="gap-1 sm:gap-2 hover:bg-muted transition-all duration-300 hover:scale-105 text-xs sm:text-sm"
+              size="sm"
             >
-              <Home className="h-4 w-4" />
-              {language === 'ar' ? 'الرئيسية' : 'Home'}
+              <Home className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">{t('home')}</span>
             </Button>
           </div>
         )}
