@@ -72,12 +72,12 @@ const AppContent: React.FC = () => {
     courses: {
       component: <CoursesPage />,
       requireAuth: true,
-      allowedRoles: ['student'],
+      allowedRoles: ['student', 'admin'], // السماح للمدير بالوصول
     },
     schedule: {
       component: <SchedulePage />,
       requireAuth: true,
-      allowedRoles: ['student'],
+      allowedRoles: ['student', 'admin'], // السماح للمدير بالوصول
     },
     reports: {
       component: <ReportsPage />,
@@ -92,7 +92,7 @@ const AppContent: React.FC = () => {
     assistant: {
       component: <AssistantPage />,
       requireAuth: true,
-      allowedRoles: ['student', 'admin'], // السماح للمدير بالوصول
+      allowedRoles: ['student', 'admin', 'supervisor'], // السماح للجميع بالوصول
     },
 
     // ============================================
@@ -150,12 +150,12 @@ const AppContent: React.FC = () => {
     documents: {
       component: <DocumentsPage />,
       requireAuth: true,
-      allowedRoles: ['admin'],
+      allowedRoles: ['student', 'admin'], // السماح للطلاب والمدير
     },
     transcript: {
       component: <TranscriptPage />,
       requireAuth: true,
-      allowedRoles: ['admin'],
+      allowedRoles: ['student', 'admin'], // السماح للطلاب والمدير
     },
   };
 

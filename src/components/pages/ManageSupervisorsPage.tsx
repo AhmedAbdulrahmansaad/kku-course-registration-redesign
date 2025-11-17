@@ -14,7 +14,13 @@ import {
   Trash2,
   Loader2,
   AlertCircle,
-  Check
+  Check,
+  Edit,
+  RefreshCw,
+  UserCheck,
+  UserX,
+  Lock,
+  Unlock
 } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import {
@@ -25,6 +31,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../ui/select';
 import { Label } from '../ui/label';
 import { projectId, publicAnonKey } from '../../utils/supabase/info';
 
@@ -33,6 +46,8 @@ interface Supervisor {
   full_name: string;
   email: string;
   role: string;
+  department?: string;
+  active?: boolean;
   created_at: string;
 }
 
@@ -42,15 +57,18 @@ export const ManageSupervisorsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedSupervisor, setSelectedSupervisor] = useState<Supervisor | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [toggling, setToggling] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
     password: '',
+    department: 'نظم المعلومات الإدارية',
     role: 'supervisor' as 'supervisor' | 'admin',
   });
 
@@ -62,14 +80,31 @@ export const ManageSupervisorsPage: React.FC = () => {
     try {
       setLoading(true);
       const accessToken = localStorage.getItem('access_token');
+      const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
       
-      if (!accessToken) {
+      console.log('🔍 Fetching supervisors...');
+      console.log('📍 Access token exists:', !!accessToken);
+      console.log('📍 Is logged in:', isLoggedIn);
+      
+      if (!accessToken || !isLoggedIn) {
+        console.error('❌ User not logged in or no access token');
         toast.error(
           language === 'ar'
             ? '🚫 يجب تسجيل الدخول أولاً'
-            : '🚫 Access denied: User not logged in'
+            : '🚫 Please login first',
+          {
+            description: language === 'ar'
+              ? 'يرجى تسجيل الدخول بحساب المدير للوصول إلى هذه الصفحة'
+              : 'Please login with an admin account to access this page'
+          }
         );
         setSupervisors([]);
+        setLoading(false);
+        
+        // Redirect to login after 2 seconds
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 2000);
         return;
       }
       
@@ -82,24 +117,54 @@ export const ManageSupervisorsPage: React.FC = () => {
         }
       );
 
-      // التحقق من نوع المحتوى قبل محاولة parse
+      console.log('📊 Response status:', response.status);
+
       const contentType = response.headers.get('content-type');
       if (!contentType || !contentType.includes('application/json')) {
-        console.error('Response is not JSON:', await response.text());
+        const errorText = await response.text();
+        console.error('❌ Response is not JSON:', errorText);
         throw new Error('Invalid response format');
       }
 
       const result = await response.json();
+      console.log('📦 Response data:', result);
 
       if (response.ok) {
-        setSupervisors(result.supervisors || []);
+        const supervisorsList = result.supervisors || [];
+        console.log(`✅ Loaded ${supervisorsList.length} supervisors`);
+        setSupervisors(supervisorsList);
       } else {
+        console.error('❌ Server error:', result.error);
+        
+        // If unauthorized or forbidden, redirect to login
+        if (response.status === 401 || response.status === 403) {
+          toast.error(
+            language === 'ar'
+              ? '🚫 يجب تسجيل الدخول بحساب المدير'
+              : '🚫 Admin access required',
+            {
+              description: language === 'ar'
+                ? 'سيتم تحويلك إلى صفحة تسجيل الدخول'
+                : 'You will be redirected to login page'
+            }
+          );
+          
+          setTimeout(() => {
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('isLoggedIn');
+            localStorage.removeItem('userInfo');
+            window.location.href = '/';
+          }, 2000);
+          return;
+        }
+        
         throw new Error(result.error || 'Failed to fetch supervisors');
       }
     } catch (error: any) {
-      console.error('Error fetching supervisors:', error);
+      console.error('❌ Error fetching supervisors:', error);
+      console.error('❌ Error details:', error.message, error.stack);
       toast.error(
-        language === 'ar' ? 'فشل في تحميل المشرفين' : 'Failed to load supervisors'
+        language === 'ar' ? `فشل في تحميل المشرفين: ${error.message}` : `Failed to load supervisors: ${error.message}`
       );
       setSupervisors([]);
     } finally {
@@ -186,7 +251,6 @@ export const ManageSupervisorsPage: React.FC = () => {
       setIsAddDialogOpen(false);
       resetForm();
       
-      // جلب المشرفين مباشرة لإظهار المشرف الجديد
       await fetchSupervisors();
     } catch (error: any) {
       console.error('❌ Error adding supervisor:', error);
@@ -195,6 +259,99 @@ export const ManageSupervisorsPage: React.FC = () => {
       );
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleEditSupervisor = async () => {
+    try {
+      setSaving(true);
+      const accessToken = localStorage.getItem('access_token');
+
+      if (!selectedSupervisor) return;
+
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/admin/update-supervisor`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            userId: selectedSupervisor.user_id,
+            fullName: formData.fullName,
+            email: formData.email,
+            department: formData.department,
+            role: formData.role,
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (response.ok) {
+        toast.success(
+          language === 'ar'
+            ? '✅ تم تحديث بيانات المشرف بنجاح'
+            : '✅ Supervisor updated successfully'
+        );
+        setIsEditDialogOpen(false);
+        setSelectedSupervisor(null);
+        resetForm();
+        await fetchSupervisors();
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error: any) {
+      console.error('Error updating supervisor:', error);
+      toast.error(
+        error.message || (language === 'ar' ? 'فشل في تحديث المشرف' : 'Failed to update supervisor')
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleToggleStatus = async (supervisor: Supervisor) => {
+    try {
+      setToggling(supervisor.user_id);
+      const accessToken = localStorage.getItem('access_token');
+
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/admin/toggle-supervisor-status`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            userId: supervisor.user_id,
+            active: !supervisor.active,
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (response.ok) {
+        const newStatus = !supervisor.active;
+        toast.success(
+          language === 'ar'
+            ? `✅ تم ${newStatus ? 'تفعيل' : 'تعطيل'} المشرف بنجاح`
+            : `✅ Supervisor ${newStatus ? 'activated' : 'deactivated'} successfully`
+        );
+        await fetchSupervisors();
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error: any) {
+      console.error('Error toggling supervisor status:', error);
+      toast.error(
+        error.message || (language === 'ar' ? 'فشل في تغيير حالة المشرف' : 'Failed to toggle supervisor status')
+      );
+    } finally {
+      setToggling(null);
     }
   };
 
@@ -229,7 +386,7 @@ export const ManageSupervisorsPage: React.FC = () => {
         );
         setIsDeleteDialogOpen(false);
         setSelectedSupervisor(null);
-        fetchSupervisors();
+        await fetchSupervisors();
       } else {
         throw new Error(result.error);
       }
@@ -243,6 +400,18 @@ export const ManageSupervisorsPage: React.FC = () => {
     }
   };
 
+  const openEditDialog = (supervisor: Supervisor) => {
+    setSelectedSupervisor(supervisor);
+    setFormData({
+      fullName: supervisor.full_name,
+      email: supervisor.email,
+      password: '',
+      department: supervisor.department || 'نظم المعلومات الإدارية',
+      role: supervisor.role as 'supervisor' | 'admin',
+    });
+    setIsEditDialogOpen(true);
+  };
+
   const openDeleteDialog = (supervisor: Supervisor) => {
     setSelectedSupervisor(supervisor);
     setIsDeleteDialogOpen(true);
@@ -253,23 +422,15 @@ export const ManageSupervisorsPage: React.FC = () => {
       fullName: '',
       email: '',
       password: '',
+      department: 'نظم المعلومات الإدارية',
       role: 'supervisor',
     });
   };
 
-  const filteredSupervisors = supervisors.filter(supervisor => {
-    // تجاهل القيم الفارغة أو null
-    if (!supervisor || !supervisor.full_name) return false;
-    
-    return supervisor.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      supervisor.email.toLowerCase().includes(searchTerm.toLowerCase());
-  });
-
-  const stats = {
-    total: supervisors.filter(s => s != null).length,
-    supervisors: supervisors.filter(s => s && s.role === 'supervisor').length,
-    admins: supervisors.filter(s => s && s.role === 'admin').length,
-  };
+  const filteredSupervisors = supervisors.filter(supervisor =>
+    supervisor.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    supervisor.email.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   if (loading) {
     return (
@@ -286,7 +447,7 @@ export const ManageSupervisorsPage: React.FC = () => {
     <div className="space-y-6">
       {/* Header */}
       <div className="relative -mx-4 -mt-8 px-4">
-        <div className="absolute inset-0 h-48 md:h-56 bg-gradient-to-br from-[#184A2C] via-purple-700 to-purple-900 dark:from-[#0e2818] dark:via-purple-900 dark:to-black"></div>
+        <div className="absolute inset-0 h-48 md:h-56 bg-gradient-to-br from-[#184A2C] via-emerald-700 to-emerald-900"></div>
         <div className="absolute inset-0 h-48 md:h-56 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-[#D4AF37]/20 via-transparent to-transparent"></div>
 
         <div className="relative z-10 text-white py-6 md:py-8">
@@ -295,11 +456,11 @@ export const ManageSupervisorsPage: React.FC = () => {
               <div className="bg-white/20 p-3 rounded-xl backdrop-blur-sm">
                 <GraduationCap className="h-6 w-6 md:h-8 md:w-8" />
               </div>
-              <div className="text-center md:text-left">
-                <h1 className="text-3xl md:text-4xl font-bold drop-shadow-lg">
+              <div>
+                <h1 className="text-3xl md:text-4xl font-bold">
                   {language === 'ar' ? 'إدارة المشرفين' : 'Manage Supervisors'}
                 </h1>
-                <p className="text-white/90 text-base md:text-lg">
+                <p className="text-white/90">
                   {language === 'ar'
                     ? `${supervisors.length} مشرف`
                     : `${supervisors.length} supervisors`}
@@ -307,48 +468,25 @@ export const ManageSupervisorsPage: React.FC = () => {
               </div>
             </div>
 
-            <Button
-              onClick={() => {
-                resetForm();
-                setIsAddDialogOpen(true);
-              }}
-              className="bg-gradient-to-r from-[#D4AF37] to-yellow-600 hover:from-yellow-600 hover:to-[#D4AF37] text-black font-bold"
-            >
-              <Plus className="h-5 w-5 mr-2" />
-              {language === 'ar' ? 'إضافة مشرف جديد' : 'Add New Supervisor'}
-            </Button>
-          </div>
-
-          {/* Quick Stats */}
-          <div className="grid grid-cols-3 gap-3 md:gap-4">
-            <div className="bg-white/20 backdrop-blur-md p-3 md:p-4 rounded-xl border border-white/30">
-              <div className="flex items-center gap-2 mb-1">
-                <GraduationCap className="h-4 w-4 text-[#D4AF37]" />
-                <span className="text-xs md:text-sm opacity-90">
-                  {language === 'ar' ? 'إجمالي' : 'Total'}
-                </span>
-              </div>
-              <p className="text-xl md:text-2xl font-bold">{stats.total}</p>
-            </div>
-
-            <div className="bg-white/20 backdrop-blur-md p-3 md:p-4 rounded-xl border border-white/30">
-              <div className="flex items-center gap-2 mb-1">
-                <GraduationCap className="h-4 w-4 text-[#D4AF37]" />
-                <span className="text-xs md:text-sm opacity-90">
-                  {language === 'ar' ? 'مشرفين' : 'Supervisors'}
-                </span>
-              </div>
-              <p className="text-xl md:text-2xl font-bold">{stats.supervisors}</p>
-            </div>
-
-            <div className="bg-white/20 backdrop-blur-md p-3 md:p-4 rounded-xl border border-white/30">
-              <div className="flex items-center gap-2 mb-1">
-                <Shield className="h-4 w-4 text-[#D4AF37]" />
-                <span className="text-xs md:text-sm opacity-90">
-                  {language === 'ar' ? 'مدراء' : 'Admins'}
-                </span>
-              </div>
-              <p className="text-xl md:text-2xl font-bold">{stats.admins}</p>
+            <div className="flex gap-3">
+              <Button
+                onClick={fetchSupervisors}
+                variant="outline"
+                className="border-white/30 text-white hover:bg-white/20"
+              >
+                <RefreshCw className="h-5 w-5 mr-2" />
+                {language === 'ar' ? 'تحديث' : 'Refresh'}
+              </Button>
+              <Button
+                onClick={() => {
+                  resetForm();
+                  setIsAddDialogOpen(true);
+                }}
+                className="bg-gradient-to-r from-[#D4AF37] to-yellow-600 hover:from-yellow-600 hover:to-[#D4AF37] text-black font-bold"
+              >
+                <Plus className="h-5 w-5 mr-2" />
+                {language === 'ar' ? 'إضافة مشرف' : 'Add Supervisor'}
+              </Button>
             </div>
           </div>
         </div>
@@ -359,7 +497,7 @@ export const ManageSupervisorsPage: React.FC = () => {
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
           <Input
-            placeholder={language === 'ar' ? 'ابحث عن مشرف...' : 'Search for supervisor...'}
+            placeholder={language === 'ar' ? 'ابحث عن مشرف...' : 'Search supervisors...'}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
@@ -367,108 +505,164 @@ export const ManageSupervisorsPage: React.FC = () => {
         </div>
       </Card>
 
-      {/* Supervisors Grid */}
-      <div className="grid gap-4">
-        {filteredSupervisors.map((supervisor, index) => (
-          <Card key={supervisor.user_id} className="p-6 hover:shadow-lg transition-shadow" style={{ animationDelay: `${index * 0.03}s` }}>
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-start gap-4 flex-1">
-                <div className={`bg-gradient-to-br ${supervisor.role === 'admin' ? 'from-[#D4AF37] to-yellow-600' : 'from-[#184A2C] to-purple-700'} p-4 rounded-full text-white flex-shrink-0`}>
-                  {supervisor.role === 'admin' ? (
-                    <Shield className="h-8 w-8" />
-                  ) : (
-                    <GraduationCap className="h-8 w-8" />
-                  )}
-                </div>
-                
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2 flex-wrap">
-                    <h3 className="text-xl font-bold">{supervisor.full_name}</h3>
-                    <Badge className={supervisor.role === 'admin' ? 'bg-[#D4AF37] text-black' : 'bg-[#184A2C]'}>
-                      {supervisor.role === 'admin' 
-                        ? (language === 'ar' ? 'مدير' : 'Admin')
-                        : (language === 'ar' ? 'مشرف' : 'Supervisor')
-                      }
-                    </Badge>
+      {/* Supervisors List */}
+      {filteredSupervisors.length === 0 ? (
+        <Card className="p-12 text-center">
+          <div className="flex justify-center mb-6">
+            <div className="p-6 bg-gray-100 dark:bg-gray-800 rounded-full">
+              <UserCheck className="h-16 w-16 text-gray-400" />
+            </div>
+          </div>
+          <h2 className="text-2xl font-bold mb-4">
+            {language === 'ar' ? 'لا يوجد مشرفين' : 'No Supervisors'}
+          </h2>
+          <p className="text-muted-foreground mb-8">
+            {language === 'ar'
+              ? 'لم يتم إضافة أي مشرفين بعد. ابدأ بإضافة مشرف جديد.'
+              : 'No supervisors added yet. Start by adding a new supervisor.'}
+          </p>
+          <Button
+            onClick={() => {
+              resetForm();
+              setIsAddDialogOpen(true);
+            }}
+            className="bg-gradient-to-r from-[#184A2C] to-emerald-700"
+          >
+            <Plus className="h-5 w-5 mr-2" />
+            {language === 'ar' ? 'إضافة مشرف جديد' : 'Add New Supervisor'}
+          </Button>
+        </Card>
+      ) : (
+        <div className="grid gap-6">
+          {filteredSupervisors.map((supervisor) => (
+            <Card key={supervisor.user_id} className="p-6 hover:shadow-lg transition-shadow">
+              <div className="flex flex-col lg:flex-row items-start justify-between gap-4">
+                <div className="flex items-start gap-4 flex-1">
+                  <div className={`p-4 rounded-xl text-white ${
+                    supervisor.active !== false 
+                      ? 'bg-gradient-to-br from-[#184A2C] to-emerald-700' 
+                      : 'bg-gradient-to-br from-gray-400 to-gray-600'
+                  }`}>
+                    <User className="h-8 w-8" />
                   </div>
+                  
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2 flex-wrap">
+                      <h3 className="text-2xl font-bold">{supervisor.full_name}</h3>
+                      <Badge className={
+                        supervisor.role === 'admin' 
+                          ? 'bg-purple-600' 
+                          : 'bg-[#184A2C]'
+                      }>
+                        {supervisor.role === 'admin'
+                          ? (language === 'ar' ? 'مدير' : 'Admin')
+                          : (language === 'ar' ? 'مشرف' : 'Supervisor')}
+                      </Badge>
+                      {supervisor.active === false && (
+                        <Badge variant="destructive">
+                          {language === 'ar' ? 'معطّل' : 'Inactive'}
+                        </Badge>
+                      )}
+                    </div>
 
-                  <div className="flex flex-wrap gap-4 text-sm text-muted-foreground mb-3">
-                    <div className="flex items-center gap-2">
-                      <Mail className="h-4 w-4" />
-                      <span>{supervisor.email}</span>
+                    <div className="flex flex-col gap-2 text-muted-foreground">
+                      <div className="flex items-center gap-2">
+                        <Mail className="h-4 w-4" />
+                        <span>{supervisor.email}</span>
+                      </div>
+                      {supervisor.department && (
+                        <div className="flex items-center gap-2">
+                          <GraduationCap className="h-4 w-4" />
+                          <span>{supervisor.department}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
+                </div>
 
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span>
-                      {language === 'ar' ? 'تاريخ الإضافة: ' : 'Added: '}
-                      {new Date(supervisor.created_at).toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                      })}
-                    </span>
-                  </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    onClick={() => openEditDialog(supervisor)}
+                    variant="outline"
+                    size="sm"
+                    className="border-blue-600 text-blue-600 hover:bg-blue-50"
+                  >
+                    <Edit className="h-4 w-4 mr-2" />
+                    {language === 'ar' ? 'تعديل' : 'Edit'}
+                  </Button>
+                  
+                  <Button
+                    onClick={() => handleToggleStatus(supervisor)}
+                    disabled={toggling === supervisor.user_id}
+                    variant="outline"
+                    size="sm"
+                    className={
+                      supervisor.active !== false
+                        ? 'border-orange-600 text-orange-600 hover:bg-orange-50'
+                        : 'border-green-600 text-green-600 hover:bg-green-50'
+                    }
+                  >
+                    {toggling === supervisor.user_id ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : supervisor.active !== false ? (
+                      <UserX className="h-4 w-4 mr-2" />
+                    ) : (
+                      <UserCheck className="h-4 w-4 mr-2" />
+                    )}
+                    {supervisor.active !== false
+                      ? (language === 'ar' ? 'تعطيل' : 'Deactivate')
+                      : (language === 'ar' ? 'تفعيل' : 'Activate')}
+                  </Button>
+
+                  <Button
+                    onClick={() => openDeleteDialog(supervisor)}
+                    variant="outline"
+                    size="sm"
+                    className="border-red-500 text-red-600 hover:bg-red-50"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    {language === 'ar' ? 'حذف' : 'Delete'}
+                  </Button>
                 </div>
               </div>
-
-              <div className="flex flex-col gap-2">
-                <Button
-                  onClick={() => openDeleteDialog(supervisor)}
-                  variant="outline"
-                  size="sm"
-                  className="border-red-500 text-red-600 hover:bg-red-50"
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  {language === 'ar' ? 'حذف' : 'Delete'}
-                </Button>
-              </div>
-            </div>
-          </Card>
-        ))}
-      </div>
-
-      {filteredSupervisors.length === 0 && (
-        <Card className="p-12 text-center">
-          <div className="flex justify-center mb-4">
-            <Search className="h-12 w-12 text-gray-400" />
-          </div>
-          <p className="text-muted-foreground">
-            {language === 'ar'
-              ? 'لم يتم العثور على مشرفين يطابقون البحث'
-              : 'No supervisors found matching your search'}
-          </p>
-        </Card>
+            </Card>
+          ))}
+        </div>
       )}
 
-      {/* Add Supervisor Dialog */}
+      {/* Add Dialog */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle className="text-2xl flex items-center gap-2">
-              <Plus className="h-6 w-6 text-green-600" />
+            <DialogTitle>
               {language === 'ar' ? 'إضافة مشرف جديد' : 'Add New Supervisor'}
             </DialogTitle>
             <DialogDescription>
-              {language === 'ar' 
-                ? 'أدخل بيانات المشرف الأكاديمي الجديد أدناه'
-                : 'Enter the new supervisor details below'}
+              {language === 'ar'
+                ? 'أدخل بيانات المشرف الجديد'
+                : 'Enter the new supervisor details'}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
+          <div className="space-y-4">
             <div>
-              <Label>{language === 'ar' ? 'الاسم الكامل *' : 'Full Name *'}</Label>
+              <Label htmlFor="fullName">
+                {language === 'ar' ? 'الاسم الكامل' : 'Full Name'} *
+              </Label>
               <Input
+                id="fullName"
                 value={formData.fullName}
                 onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                placeholder={language === 'ar' ? 'د. محمد أحمد' : 'Dr. Mohammed Ahmed'}
+                placeholder={language === 'ar' ? 'أحمد محمد علي' : 'John Doe'}
               />
             </div>
 
             <div>
-              <Label>{language === 'ar' ? 'البريد الإلكتروني *' : 'Email *'}</Label>
+              <Label htmlFor="email">
+                {language === 'ar' ? 'البريد الإلكتروني' : 'Email'} *
+              </Label>
               <Input
+                id="email"
                 type="email"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
@@ -477,37 +671,52 @@ export const ManageSupervisorsPage: React.FC = () => {
             </div>
 
             <div>
-              <Label>{language === 'ar' ? 'كلمة المرور *' : 'Password *'}</Label>
+              <Label htmlFor="password">
+                {language === 'ar' ? 'كلمة المرور' : 'Password'} *
+              </Label>
               <Input
+                id="password"
                 type="password"
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                placeholder="••••••••"
+                placeholder="********"
               />
             </div>
 
             <div>
-              <Label>{language === 'ar' ? 'الدور *' : 'Role *'}</Label>
-              <div className="flex gap-4 mt-2">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    checked={formData.role === 'supervisor'}
-                    onChange={() => setFormData({ ...formData, role: 'supervisor' })}
-                    className="h-4 w-4"
-                  />
-                  <span>{language === 'ar' ? 'مشرف أكاديمي' : 'Academic Supervisor'}</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    checked={formData.role === 'admin'}
-                    onChange={() => setFormData({ ...formData, role: 'admin' })}
-                    className="h-4 w-4"
-                  />
-                  <span>{language === 'ar' ? 'مدير النظام' : 'System Admin'}</span>
-                </label>
-              </div>
+              <Label htmlFor="department">
+                {language === 'ar' ? 'القسم' : 'Department'}
+              </Label>
+              <Input
+                id="department"
+                value={formData.department}
+                onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                placeholder={language === 'ar' ? 'نظم المعلومات الإدارية' : 'MIS'}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="role">
+                {language === 'ar' ? 'الدور' : 'Role'}
+              </Label>
+              <Select
+                value={formData.role}
+                onValueChange={(value: 'supervisor' | 'admin') => 
+                  setFormData({ ...formData, role: value })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="supervisor">
+                    {language === 'ar' ? 'مشرف أكاديمي' : 'Supervisor'}
+                  </SelectItem>
+                  <SelectItem value="admin">
+                    {language === 'ar' ? 'مدير نظام' : 'Admin'}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -518,7 +727,7 @@ export const ManageSupervisorsPage: React.FC = () => {
             <Button
               onClick={handleAddSupervisor}
               disabled={saving}
-              className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800"
+              className="bg-gradient-to-r from-[#184A2C] to-emerald-700"
             >
               {saving ? (
                 <>
@@ -536,42 +745,132 @@ export const ManageSupervisorsPage: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent>
+      {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle className="text-2xl flex items-center gap-2">
-              <AlertCircle className="h-6 w-6 text-red-600" />
-              {language === 'ar' ? 'تأكيد الحذف' : 'Confirm Delete'}
+            <DialogTitle>
+              {language === 'ar' ? 'تعديل بيانات المشرف' : 'Edit Supervisor'}
             </DialogTitle>
             <DialogDescription>
               {language === 'ar'
-                ? 'هل أنت متأكد من حذف هذا المشرف؟ لا يمكن التراجع عن هذا الإجراء.'
-                : 'Are you sure you want to delete this supervisor? This action cannot be undone.'}
+                ? 'قم بتعديل بيانات المشرف'
+                : 'Update supervisor details'}
             </DialogDescription>
           </DialogHeader>
 
-          {selectedSupervisor && (
-            <div className="py-4 space-y-2">
-              <p className="font-medium text-lg">{selectedSupervisor.full_name}</p>
-              <p className="text-sm text-muted-foreground">{selectedSupervisor.email}</p>
-              <Badge className={selectedSupervisor.role === 'admin' ? 'bg-[#D4AF37] text-black' : 'bg-[#184A2C]'}>
-                {selectedSupervisor.role === 'admin' 
-                  ? (language === 'ar' ? 'مدير' : 'Admin')
-                  : (language === 'ar' ? 'مشرف' : 'Supervisor')
-                }
-              </Badge>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="edit-fullName">
+                {language === 'ar' ? 'الاسم الكامل' : 'Full Name'} *
+              </Label>
+              <Input
+                id="edit-fullName"
+                value={formData.fullName}
+                onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+              />
             </div>
-          )}
+
+            <div>
+              <Label htmlFor="edit-email">
+                {language === 'ar' ? 'البريد الإلكتروني' : 'Email'} *
+              </Label>
+              <Input
+                id="edit-email"
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="edit-department">
+                {language === 'ar' ? 'القسم' : 'Department'}
+              </Label>
+              <Input
+                id="edit-department"
+                value={formData.department}
+                onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="edit-role">
+                {language === 'ar' ? 'الدور' : 'Role'}
+              </Label>
+              <Select
+                value={formData.role}
+                onValueChange={(value: 'supervisor' | 'admin') => 
+                  setFormData({ ...formData, role: value })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="supervisor">
+                    {language === 'ar' ? 'مشرف أكاديمي' : 'Supervisor'}
+                  </SelectItem>
+                  <SelectItem value="admin">
+                    {language === 'ar' ? 'مدير نظام' : 'Admin'}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              {language === 'ar' ? 'إلغاء' : 'Cancel'}
+            </Button>
+            <Button
+              onClick={handleEditSupervisor}
+              disabled={saving}
+              className="bg-gradient-to-r from-[#184A2C] to-emerald-700"
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  {language === 'ar' ? 'جاري الحفظ...' : 'Saving...'}
+                </>
+              ) : (
+                <>
+                  <Check className="h-4 w-4 mr-2" />
+                  {language === 'ar' ? 'حفظ' : 'Save'}
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertCircle className="h-6 w-6" />
+              {language === 'ar' ? 'تأكيد الحذف' : 'Confirm Deletion'}
+            </DialogTitle>
+            <DialogDescription>
+              {language === 'ar'
+                ? `هل أنت متأكد من حذف المشرف "${selectedSupervisor?.full_name}"؟ هذا الإجراء لا يمكن التراجع عنه.`
+                : `Are you sure you want to delete supervisor "${selectedSupervisor?.full_name}"? This action cannot be undone.`}
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsDeleteDialogOpen(false)}
+              disabled={deleting}
+            >
               {language === 'ar' ? 'إلغاء' : 'Cancel'}
             </Button>
             <Button
               onClick={handleDeleteSupervisor}
               disabled={deleting}
-              className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800"
+              variant="destructive"
             >
               {deleting ? (
                 <>

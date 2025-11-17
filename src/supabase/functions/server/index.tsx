@@ -27,7 +27,7 @@ app.get('/make-server-1573e40a/health', (c) => {
   return c.json({ status: 'ok', message: 'KKU Course Registration System Server' });
 });
 
-// Log access agreement
+// Log access agreement (old endpoint - kept for compatibility)
 app.post('/make-server-1573e40a/log-access', async (c) => {
   try {
     const body = await c.req.json();
@@ -50,6 +50,54 @@ app.post('/make-server-1573e40a/log-access', async (c) => {
   } catch (error: any) {
     console.error('Error logging access:', error);
     return c.json({ error: 'Failed to log access' }, 500);
+  }
+});
+
+// Save agreement (enhanced version with full validation)
+app.post('/make-server-1573e40a/save-agreement', async (c) => {
+  try {
+    console.log('📝 [Agreement] Saving agreement...');
+    const body = await c.req.json();
+    const { fullName, ipAddress, userAgent, timestamp, language } = body;
+
+    // Validate input
+    if (!fullName || fullName.trim().length < 3) {
+      return c.json({ error: 'Invalid full name' }, 400);
+    }
+
+    const agreementId = `agreement:${Date.now()}:${fullName.replace(/\s/g, '_')}`;
+    
+    const agreementData = {
+      agreement_id: agreementId,
+      full_name: fullName.trim(),
+      ip_address: ipAddress || 'Unknown',
+      user_agent: userAgent || 'Unknown',
+      timestamp: timestamp || new Date().toISOString(),
+      language: language || 'ar',
+      agreed_at: new Date().toISOString(),
+      status: 'accepted',
+      version: '1.0',
+    };
+
+    // حفظ في KV Store
+    await kv.set(agreementId, agreementData);
+    
+    // حفظ نسخة بـ prefix للبحث السهل
+    const agreementsByName = await kv.get(`agreements:by_name:${fullName.trim()}`) || [];
+    agreementsByName.push(agreementId);
+    await kv.set(`agreements:by_name:${fullName.trim()}`, agreementsByName);
+
+    console.log('✅ [Agreement] Saved successfully:', agreementId);
+
+    return c.json({
+      success: true,
+      message: 'Agreement saved successfully',
+      agreement_id: agreementId,
+      timestamp: agreementData.agreed_at,
+    });
+  } catch (error: any) {
+    console.error('❌ [Agreement] Error saving agreement:', error);
+    return c.json({ error: 'Failed to save agreement', details: error.message }, 500);
   }
 });
 
@@ -526,6 +574,97 @@ app.get('/make-server-1573e40a/student/registrations', async (c) => {
   } catch (error: any) {
     console.error('❌ Error in student/registrations endpoint:', error);
     return c.json({ error: `Failed to get registrations: ${error.message}` }, 500);
+  }
+});
+
+// Get student statistics (for dashboard)
+app.get('/make-server-1573e40a/student/statistics', async (c) => {
+  try {
+    console.log('📊 Getting student statistics...');
+    
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    if (!accessToken) {
+      console.error('❌ No access token provided');
+      return c.json({ error: 'Unauthorized: No access token' }, 401);
+    }
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+    if (authError || !user) {
+      console.error('❌ Auth error:', authError);
+      return c.json({ error: 'Unauthorized: Invalid token' }, 401);
+    }
+
+    console.log('✅ User authenticated:', user.id);
+
+    // Get student ID from auth mapping
+    const studentId = await kv.get(`auth:${user.id}`);
+    if (!studentId) {
+      console.error('❌ No student ID found for user:', user.id);
+      return c.json({ 
+        stats: {
+          totalRegisteredCourses: 0,
+          totalApprovedCourses: 0,
+          totalPendingCourses: 0,
+          totalRejectedCourses: 0,
+          totalCreditHours: 0,
+          pendingCreditHours: 0,
+          rejectedCreditHours: 0,
+        }
+      });
+    }
+
+    console.log('✅ Student ID:', studentId);
+
+    // Get registration IDs
+    const registrationIds = await kv.get(`student:${studentId}:registrations`) || [];
+    console.log('📝 Total registration IDs:', registrationIds.length);
+
+    let totalRegistered = 0;
+    let totalApproved = 0;
+    let totalPending = 0;
+    let totalRejected = 0;
+    let approvedHours = 0;
+    let pendingHours = 0;
+    let rejectedHours = 0;
+
+    // حساب الإحصائيات من قاعدة البيانات مباشرة
+    for (const regId of registrationIds) {
+      const reg = await kv.get(`registration:${regId}`);
+      if (reg) {
+        totalRegistered++;
+        
+        // الحصول على تفاصيل المقرر
+        const course = await kv.get(`course:${reg.course_id}`);
+        const creditHours = course?.credit_hours || 0;
+
+        if (reg.status === 'approved') {
+          totalApproved++;
+          approvedHours += creditHours;
+        } else if (reg.status === 'pending') {
+          totalPending++;
+          pendingHours += creditHours;
+        } else if (reg.status === 'rejected') {
+          totalRejected++;
+          rejectedHours += creditHours;
+        }
+      }
+    }
+
+    const stats = {
+      totalRegisteredCourses: totalRegistered,
+      totalApprovedCourses: totalApproved,
+      totalPendingCourses: totalPending,
+      totalRejectedCourses: totalRejected,
+      totalCreditHours: approvedHours,
+      pendingCreditHours: pendingHours,
+      rejectedCreditHours: rejectedHours,
+    };
+
+    console.log('✅ Statistics calculated:', stats);
+    return c.json({ stats });
+  } catch (error: any) {
+    console.error('❌ Error in student/statistics endpoint:', error);
+    return c.json({ error: `Failed to get statistics: ${error.message}` }, 500);
   }
 });
 
@@ -1491,6 +1630,109 @@ app.delete('/make-server-1573e40a/admin/delete-student', async (c) => {
   }
 });
 
+// Admin: Get student report by ID
+app.get('/make-server-1573e40a/admin/student-report/:studentId', async (c) => {
+  try {
+    console.log('📊 GET /admin/student-report/:studentId - Fetching student report...');
+    
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    if (!accessToken) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+    if (authError || !user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    // Check if user is admin
+    const adminUserId = await kv.get(`auth:${user.id}`);
+    const adminUserData = await kv.get(`student:${adminUserId}`);
+    
+    if (!adminUserData || adminUserData.role !== 'admin') {
+      return c.json({ error: 'Forbidden: Admin access required' }, 403);
+    }
+
+    const studentId = c.req.param('studentId');
+    console.log('📊 Fetching report for student ID:', studentId);
+
+    // Get student data
+    const studentData = await kv.get(`student:${studentId}`);
+    if (!studentData) {
+      return c.json({ error: 'Student not found' }, 404);
+    }
+
+    // Get student registrations
+    const registrationIds = await kv.get(`student:${studentId}:registrations`) || [];
+    console.log('📝 Found', registrationIds.length, 'registrations for student');
+
+    const registrations = [];
+    let totalCourses = 0;
+    let approvedCourses = 0;
+    let pendingCourses = 0;
+    let rejectedCourses = 0;
+    let totalHours = 0;
+    let approvedHours = 0;
+
+    for (const regId of registrationIds) {
+      const reg = await kv.get(`registration:${regId}`);
+      if (reg) {
+        totalCourses++;
+        
+        // Get course details
+        const course = await kv.get(`course:${reg.course_id}`);
+        const creditHours = course?.credit_hours || 0;
+
+        if (reg.status === 'approved') {
+          approvedCourses++;
+          approvedHours += creditHours;
+        } else if (reg.status === 'pending') {
+          pendingCourses++;
+        } else if (reg.status === 'rejected') {
+          rejectedCourses++;
+        }
+
+        totalHours += creditHours;
+
+        registrations.push({
+          ...reg,
+          course: course || null,
+        });
+      }
+    }
+
+    const report = {
+      student: {
+        id: studentData.id,
+        name: studentData.name,
+        email: studentData.email,
+        major: studentData.major,
+        level: studentData.level,
+        gpa: studentData.gpa || 0,
+        earned_hours: studentData.earned_hours || 0,
+        role: studentData.role,
+      },
+      registrations,
+      stats: {
+        totalCourses,
+        approvedCourses,
+        pendingCourses,
+        rejectedCourses,
+        totalHours,
+        approvedHours,
+        semesterGPA: studentData.gpa || 0,
+        cumulativeGPA: studentData.gpa || 0,
+      },
+    };
+
+    console.log('✅ Report generated successfully');
+    return c.json(report);
+  } catch (error: any) {
+    console.error('❌ Error fetching student report:', error);
+    return c.json({ error: `Failed to fetch student report: ${error.message}` }, 500);
+  }
+});
+
 // Admin: Get all supervisors
 app.get('/make-server-1573e40a/admin/supervisors', async (c) => {
   try {
@@ -1514,19 +1756,30 @@ app.get('/make-server-1573e40a/admin/supervisors', async (c) => {
 
     // Get all supervisors from KV (including admins)
     const allUsersKeys = await kv.getByPrefix('student:');
+    console.log(`📦 Total users in KV:`, allUsersKeys.length);
+    
     const supervisors = allUsersKeys
       .map(item => item.value)
-      .filter(user => user && (user.role === 'supervisor' || user.role === 'admin'))
+      .filter(user => {
+        if (!user) return false;
+        const isSupervisorOrAdmin = user.role === 'supervisor' || user.role === 'admin';
+        if (isSupervisorOrAdmin) {
+          console.log(`✅ Found supervisor/admin:`, user.id || user.user_id, user.role);
+        }
+        return isSupervisorOrAdmin;
+      })
       .map(user => ({
         user_id: user.id || user.user_id,
         full_name: user.name || user.full_name,
         email: user.email,
         role: user.role,
         department: user.department || 'نظم المعلومات الإدارية',
+        active: user.active !== undefined ? user.active : true,
         created_at: user.created_at || new Date().toISOString(),
       }));
 
     console.log(`📋 Found ${supervisors.length} supervisors/admins`);
+    console.log(`📋 Supervisors list:`, supervisors);
 
     return c.json({ supervisors });
   } catch (error: any) {
@@ -1738,6 +1991,152 @@ app.delete('/make-server-1573e40a/admin/delete-supervisor', async (c) => {
     console.error('❌ Error deleting supervisor:', error);
     console.error('❌ Error stack:', error.stack);
     return c.json({ error: error.message || 'Failed to delete supervisor' }, 500);
+  }
+});
+
+// Admin: Update supervisor
+app.put('/make-server-1573e40a/admin/update-supervisor', async (c) => {
+  try {
+    console.log('✏️ PUT /admin/update-supervisor - Starting...');
+    
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    if (!accessToken) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+    if (authError || !user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    // Check if user is admin
+    const adminUserId = await kv.get(`auth:${user.id}`);
+    const adminUserData = await kv.get(`student:${adminUserId}`);
+    
+    if (!adminUserData || adminUserData.role !== 'admin') {
+      return c.json({ error: 'Forbidden: Admin access required' }, 403);
+    }
+
+    const { userId, fullName, email, department, role } = await c.req.json();
+    
+    if (!userId) {
+      return c.json({ error: 'User ID is required' }, 400);
+    }
+
+    console.log('✏️ Updating supervisor:', userId);
+
+    // Get supervisor data
+    const supervisorData = await kv.get(`student:${userId}`);
+    
+    if (!supervisorData) {
+      return c.json({ error: 'Supervisor not found' }, 404);
+    }
+
+    // Check if email changed and if new email already exists
+    if (email && email !== supervisorData.email) {
+      const existingUserId = await kv.get(`email:${email}`);
+      if (existingUserId && existingUserId !== userId) {
+        return c.json({ error: 'Email already registered' }, 400);
+      }
+
+      // Delete old email mapping
+      await kv.del(`email:${supervisorData.email}`);
+      // Create new email mapping
+      await kv.set(`email:${email}`, userId);
+    }
+
+    // Update supervisor data
+    const updatedData = {
+      ...supervisorData,
+      name: fullName || supervisorData.name,
+      full_name: fullName || supervisorData.full_name || supervisorData.name,
+      email: email || supervisorData.email,
+      department: department || supervisorData.department,
+      role: role || supervisorData.role,
+      updated_at: new Date().toISOString(),
+    };
+
+    await kv.set(`student:${userId}`, updatedData);
+
+    console.log('✅ Supervisor updated successfully:', userId);
+
+    return c.json({
+      success: true,
+      message: 'Supervisor updated successfully',
+      supervisor: {
+        user_id: userId,
+        full_name: updatedData.name || updatedData.full_name,
+        email: updatedData.email,
+        role: updatedData.role,
+        department: updatedData.department,
+      },
+    });
+  } catch (error: any) {
+    console.error('❌ Error updating supervisor:', error);
+    return c.json({ error: error.message || 'Failed to update supervisor' }, 500);
+  }
+});
+
+// Admin: Toggle supervisor status (activate/deactivate)
+app.post('/make-server-1573e40a/admin/toggle-supervisor-status', async (c) => {
+  try {
+    console.log('🔄 POST /admin/toggle-supervisor-status - Starting...');
+    
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    if (!accessToken) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+    if (authError || !user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    // Check if user is admin
+    const adminUserId = await kv.get(`auth:${user.id}`);
+    const adminUserData = await kv.get(`student:${adminUserId}`);
+    
+    if (!adminUserData || adminUserData.role !== 'admin') {
+      return c.json({ error: 'Forbidden: Admin access required' }, 403);
+    }
+
+    const { userId, active } = await c.req.json();
+    
+    if (!userId) {
+      return c.json({ error: 'User ID is required' }, 400);
+    }
+
+    console.log('🔄 Toggling supervisor status:', userId, 'to', active);
+
+    // Get supervisor data
+    const supervisorData = await kv.get(`student:${userId}`);
+    
+    if (!supervisorData) {
+      return c.json({ error: 'Supervisor not found' }, 404);
+    }
+
+    // Update supervisor data
+    const updatedData = {
+      ...supervisorData,
+      active: active !== undefined ? active : !supervisorData.active,
+      updated_at: new Date().toISOString(),
+    };
+
+    await kv.set(`student:${userId}`, updatedData);
+
+    console.log('✅ Supervisor status updated:', userId, 'active:', updatedData.active);
+
+    return c.json({
+      success: true,
+      message: `Supervisor ${updatedData.active ? 'activated' : 'deactivated'} successfully`,
+      supervisor: {
+        user_id: userId,
+        active: updatedData.active,
+      },
+    });
+  } catch (error: any) {
+    console.error('❌ Error toggling supervisor status:', error);
+    return c.json({ error: error.message || 'Failed to toggle supervisor status' }, 500);
   }
 });
 

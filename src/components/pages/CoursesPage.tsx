@@ -21,7 +21,8 @@ import {
   TrendingUp,
   Award,
   Star,
-  Loader2
+  Loader2,
+  ArrowLeft
 } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import {
@@ -53,6 +54,7 @@ export const CoursesPage: React.FC = () => {
     language, 
     t, 
     userInfo,
+    setCurrentPage
   } = useApp();
   
   const [courses, setCourses] = useState<Course[]>([]);
@@ -70,9 +72,15 @@ export const CoursesPage: React.FC = () => {
       setLoading(true);
       console.log('📚 Fetching courses for user:', userInfo);
 
-      // جلب جميع المقررات بدون تصفية بـ level في البداية
+      if (!userInfo) {
+        console.log('⚠️ No user info, fetching all MIS courses');
+      }
+
+      // جلب المقررات بناءً على قسم الطالب
+      const department = userInfo?.major || 'MIS';
+      
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/courses?department=MIS`,
+        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/courses?department=${department}`,
         {
           headers: {
             Authorization: `Bearer ${publicAnonKey}`,
@@ -94,7 +102,17 @@ export const CoursesPage: React.FC = () => {
       if (result.courses) {
         const coursesData = result.courses || [];
         console.log('✅ Loaded', coursesData.length, 'courses');
-        setCourses(coursesData);
+        
+        // إذا كان الطالب لديه مستوى، نظهر المقررات حتى مستواه
+        let filteredCourses = coursesData;
+        if (userInfo?.level) {
+          filteredCourses = coursesData.filter((course: Course) => 
+            course.level <= userInfo.level
+          );
+          console.log('✅ Filtered to', filteredCourses.length, 'courses for level', userInfo.level);
+        }
+        
+        setCourses(filteredCourses);
       } else if (result.error) {
         console.error('❌ Failed to load courses:', result.error);
         throw new Error(result.error);
@@ -110,6 +128,8 @@ export const CoursesPage: React.FC = () => {
           ? `فشل في تحميل المقررات: ${error.message}` 
           : `Failed to load courses: ${error.message}`
       );
+      // عرض قائمة فارغة في حالة الخطأ
+      setCourses([]);
     } finally {
       setLoading(false);
     }
@@ -229,6 +249,19 @@ export const CoursesPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* زر الرجوع الواضح */}
+      <div className="flex items-center gap-4">
+        <Button
+          onClick={() => setCurrentPage('studentDashboard')}
+          variant="outline"
+          size="lg"
+          className="group border-2 border-kku-green hover:bg-kku-green hover:text-white transition-all duration-300"
+        >
+          <ArrowLeft className={`h-5 w-5 group-hover:-translate-x-1 transition-transform ${language === 'ar' ? 'rotate-180' : ''}`} />
+          <span className="mr-2">{language === 'ar' ? 'العودة للوحة التحكم' : 'Back to Dashboard'}</span>
+        </Button>
+      </div>
+
       {/* Header */}
       <div className="relative -mx-4 -mt-8 px-4">
         <div className="absolute inset-0 h-48 md:h-56 bg-gradient-to-br from-[#184A2C] via-emerald-700 to-emerald-900 dark:from-[#0e2818] dark:via-emerald-900 dark:to-black"></div>

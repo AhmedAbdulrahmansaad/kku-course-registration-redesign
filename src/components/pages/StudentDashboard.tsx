@@ -41,10 +41,43 @@ export const StudentDashboard: React.FC = () => {
   const [stats, setStats] = useState<AcademicStats | null>(null);
   const [alerts, setAlerts] = useState<AcademicAlert[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dbStats, setDbStats] = useState<any>(null); // إحصائيات من قاعدة البيانات
 
   useEffect(() => {
     fetchRegistrations();
+    fetchStatistics(); // جلب الإحصائيات من الـ server
   }, []);
+
+  const fetchStatistics = async () => {
+    try {
+      console.log('📊 [Dashboard] Fetching statistics from server...');
+      
+      const accessToken = localStorage.getItem('access_token');
+      if (!accessToken) {
+        console.warn('⚠️ [Dashboard] No access token for statistics');
+        return;
+      }
+
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/student/statistics`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ [Dashboard] Server statistics:', result.stats);
+        setDbStats(result.stats);
+      } else {
+        console.error('❌ [Dashboard] Failed to fetch statistics:', response.status);
+      }
+    } catch (error: any) {
+      console.error('❌ [Dashboard] Error fetching statistics:', error);
+    }
+  };
 
   const fetchRegistrations = async () => {
     try {
@@ -291,6 +324,44 @@ export const StudentDashboard: React.FC = () => {
               {language === 'ar' ? 'تقدم المستوى الحالي' : 'Current Level Progress'}
             </h2>
           </div>
+
+          {/* Database Statistics Verification */}
+          {dbStats && (
+            <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+              <div className="flex items-center gap-2 mb-2">
+                <BarChart3 className="h-4 w-4 text-blue-600" />
+                <p className="text-sm font-bold text-blue-900 dark:text-blue-100">
+                  {language === 'ar' ? '📊 إحصائيات قاعدة البيانات' : '📊 Database Statistics'}
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <span className="text-muted-foreground">
+                    {language === 'ar' ? 'المقررات المقبولة:' : 'Approved:'}
+                  </span>
+                  <span className="font-bold ml-1">{dbStats.totalApprovedCourses}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">
+                    {language === 'ar' ? 'الساعات المقبولة:' : 'Hours:'}
+                  </span>
+                  <span className="font-bold ml-1">{dbStats.totalCreditHours}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">
+                    {language === 'ar' ? 'قيد الانتظار:' : 'Pending:'}
+                  </span>
+                  <span className="font-bold ml-1">{dbStats.totalPendingCourses}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">
+                    {language === 'ar' ? 'المرفوضة:' : 'Rejected:'}
+                  </span>
+                  <span className="font-bold ml-1">{dbStats.totalRejectedCourses}</span>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="space-y-4">
             <div>

@@ -189,9 +189,16 @@ export const ManageCoursesPage: React.FC = () => {
             ? '✅ تم إضافة المقرر بنجاح'
             : '✅ Course added successfully'
         );
+        
+        // إضافة المقرر الجديد مباشرة إلى القائمة
+        if (result.course) {
+          setCourses(prevCourses => [...prevCourses, result.course]);
+        }
+        
         setIsAddDialogOpen(false);
         resetForm();
-        fetchCourses();
+        // إعادة تحميل المقررات للتأكد من التزامن
+        await fetchCourses();
       } else {
         throw new Error(result.error);
       }
