@@ -257,7 +257,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [registrationRequests, setRegistrationRequests] = useState<RegistrationRequest[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
-  // التحقق من التعهد وتسجيل الدخول عد التحميل
+  // التحقق من تسجيل الدخول عند التحميل
   useEffect(() => {
     const agreementAccepted = localStorage.getItem('agreementAccepted');
     const savedUser = localStorage.getItem('userInfo');
@@ -269,32 +269,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (savedLang) setLanguageState(savedLang);
     if (savedTheme) setThemeState(savedTheme);
 
-    // التحقق من التعهد
-    if (agreementAccepted === 'true') {
-      setHasAcceptedAgreementState(true);
+    // التحقق من تسجيل الدخول أولاً
+    if (savedUser) {
+      const user = JSON.parse(savedUser);
+      setUserInfo(user);
+      setIsLoggedIn(true);
       
-      // التحقق من تسجيل الدخول
-      if (savedUser) {
-        const user = JSON.parse(savedUser);
-        setUserInfo(user);
-        setIsLoggedIn(true);
-        
-        // توجيه المستخدم للصفحة المناسبة حسب دوره
-        if (user.role === 'admin') {
-          setCurrentPageState('adminDashboard');
-        } else if (user.role === 'supervisor') {
-          setCurrentPageState('supervisorDashboard');
-        } else {
-          setCurrentPageState('studentDashboard');
-        }
+      const userRole = user.role || 'student';
+      
+      // ✅ المشرف والمدير لا يحتاجون للتعهد - يذهبون مباشرة للوحة التحكم
+      if (userRole === 'admin') {
+        setHasAcceptedAgreementState(true); // تخطي التعهد
+        setCurrentPageState('adminDashboard');
+        return;
+      } else if (userRole === 'supervisor') {
+        setHasAcceptedAgreementState(true); // تخطي التعهد
+        setCurrentPageState('supervisorDashboard');
+        return;
+      }
+      
+      // ✅ الطالب يحتاج للتعهد
+      if (agreementAccepted === 'true') {
+        setHasAcceptedAgreementState(true);
+        setCurrentPageState('studentDashboard');
       } else {
-        // ✅ قبل التعهد لكن لم يسجل دخول - لا نغير الصفحة الحالية
-        // دع المستخدم في الصفحة التي هو فيها (login أو home)
-        // لا نفعل شيء - الصفحة ستبقى كما هي
+        // لم يقبل التعهد - الذهاب لصفحة التعهد
+        setCurrentPageState('accessAgreement');
       }
     } else {
-      // لم يقبل التعهد - البقاء في صفحة التعهد
-      setCurrentPageState('accessAgreement');
+      // ✅ لم يسجل دخول
+      if (agreementAccepted === 'true') {
+        setHasAcceptedAgreementState(true);
+        // دع المستخدم في الصفحة التي هو فيها (login أو home)
+      } else {
+        // لم يقبل التعهد - الذهاب لصفحة التعهد
+        setCurrentPageState('accessAgreement');
+      }
     }
 
     if (savedCourses) {
