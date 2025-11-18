@@ -48,6 +48,7 @@ export const SignUpPage: React.FC = () => {
     major: '',
     level: '',
     role: 'student', // الدور الافتراضي
+    phone: '',
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -185,32 +186,22 @@ export const SignUpPage: React.FC = () => {
     try {
       console.log('📝 إنشاء حساب:', formData.role, formData.email);
 
-      // إعداد البيانات للإرسال
-      const signupData: any = {
-        fullName: formData.fullName,
-        email: formData.email,
-        password: formData.password,
-        role: formData.role,
-      };
-
-      // ✅ إذا كان الدور "طالب" فقط، نضيف البيانات الإضافية
-      if (formData.role === 'student') {
-        signupData.studentId = formData.studentId;
-        signupData.major = formData.major;
-        signupData.level = parseInt(formData.level);
-        signupData.gpa = formData.gpa ? parseFloat(formData.gpa) : null;
-      }
-
-      // استدعاء API إنشاء الحساب
+      // استدعاء API إنشاء الحساب (SQL Database)
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/signup`,
+        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/auth/signup`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${publicAnonKey}`,
           },
-          body: JSON.stringify(signupData),
+          body: JSON.stringify({
+            studentId: formData.studentId,
+            email: formData.email,
+            password: formData.password,
+            name: formData.fullName,
+            phone: formData.phone || '',
+          }),
         }
       );
 

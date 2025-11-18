@@ -79,92 +79,41 @@ export const ManageSupervisorsPage: React.FC = () => {
   const fetchSupervisors = async () => {
     try {
       setLoading(true);
-      const accessToken = localStorage.getItem('access_token');
-      const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
       
-      console.log('🔍 Fetching supervisors...');
-      console.log('📍 Access token exists:', !!accessToken);
-      console.log('📍 Is logged in:', isLoggedIn);
-      
-      if (!accessToken || !isLoggedIn) {
-        console.error('❌ User not logged in or no access token');
-        toast.error(
-          language === 'ar'
-            ? '🚫 يجب تسجيل الدخول أولاً'
-            : '🚫 Please login first',
-          {
-            description: language === 'ar'
-              ? 'يرجى تسجيل الدخول بحساب المدير للوصول إلى هذه الصفحة'
-              : 'Please login with an admin account to access this page'
-          }
-        );
-        setSupervisors([]);
-        setLoading(false);
-        
-        // Redirect to login after 2 seconds
-        setTimeout(() => {
-          window.location.href = '/';
-        }, 2000);
-        return;
-      }
+      console.log('🔍 [ManageSupervisors] Fetching supervisors from SQL Database...');
       
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/admin/supervisors`,
+        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/supervisors`,
         {
           headers: {
-            Authorization: `Bearer ${accessToken}`,
+            Authorization: `Bearer ${publicAnonKey}`,
           },
         }
       );
 
-      console.log('📊 Response status:', response.status);
-
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
+      console.log('📚 [ManageSupervisors] Response status:', response.status);
+      
+      if (!response.ok) {
         const errorText = await response.text();
-        console.error('❌ Response is not JSON:', errorText);
-        throw new Error('Invalid response format');
+        console.error('❌ [ManageSupervisors] Server response error:', errorText);
+        throw new Error(`Server error: ${response.status}`);
       }
 
       const result = await response.json();
-      console.log('📦 Response data:', result);
+      console.log('📚 [ManageSupervisors] SQL Database response:', result);
 
-      if (response.ok) {
-        const supervisorsList = result.supervisors || [];
-        console.log(`✅ Loaded ${supervisorsList.length} supervisors`);
-        setSupervisors(supervisorsList);
+      if (result.success && result.supervisors) {
+        console.log('✅ [ManageSupervisors] Loaded', result.supervisors.length, 'supervisors from SQL');
+        setSupervisors(result.supervisors);
       } else {
-        console.error('❌ Server error:', result.error);
-        
-        // If unauthorized or forbidden, redirect to login
-        if (response.status === 401 || response.status === 403) {
-          toast.error(
-            language === 'ar'
-              ? '🚫 يجب تسجيل الدخول بحساب المدير'
-              : '🚫 Admin access required',
-            {
-              description: language === 'ar'
-                ? 'سيتم تحويلك إلى صفحة تسجيل الدخول'
-                : 'You will be redirected to login page'
-            }
-          );
-          
-          setTimeout(() => {
-            localStorage.removeItem('access_token');
-            localStorage.removeItem('isLoggedIn');
-            localStorage.removeItem('userInfo');
-            window.location.href = '/';
-          }, 2000);
-          return;
-        }
-        
-        throw new Error(result.error || 'Failed to fetch supervisors');
+        throw new Error(result.error || 'Failed to load supervisors');
       }
     } catch (error: any) {
-      console.error('❌ Error fetching supervisors:', error);
-      console.error('❌ Error details:', error.message, error.stack);
+      console.error('❌ [ManageSupervisors] Error fetching supervisors:', error);
       toast.error(
-        language === 'ar' ? `فشل في تحميل المشرفين: ${error.message}` : `Failed to load supervisors: ${error.message}`
+        language === 'ar' 
+          ? `فشل في تحميل المشرفين: ${error.message}` 
+          : `Failed to load supervisors: ${error.message}`
       );
       setSupervisors([]);
     } finally {

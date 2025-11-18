@@ -54,25 +54,27 @@ export const AdminDashboard: React.FC = () => {
 
   const fetchStats = async () => {
     try {
-      const accessToken = localStorage.getItem('access_token');
-      if (!accessToken) return;
+      console.log('📊 [AdminDashboard] Fetching stats from SQL Database...');
 
-      // جلب إحصائيات النظام
+      // جلب إحصائيات النظام من SQL Database
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/admin/stats`,
+        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/dashboard/admin`,
         {
           headers: {
-            Authorization: `Bearer ${accessToken}`,
+            Authorization: `Bearer ${publicAnonKey}`,
           },
         }
       );
 
       if (response.ok) {
         const result = await response.json();
+        console.log('✅ [AdminDashboard] SQL Database stats:', result.stats);
         setStats(result.stats);
+      } else {
+        console.error('❌ [AdminDashboard] Failed to fetch stats');
       }
     } catch (error: any) {
-      console.error('Error fetching stats:', error);
+      console.error('❌ [AdminDashboard] Error fetching stats:', error);
     } finally {
       setLoading(false);
     }

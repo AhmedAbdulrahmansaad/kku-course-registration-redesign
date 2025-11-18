@@ -70,17 +70,11 @@ export const CoursesPage: React.FC = () => {
   const fetchCourses = async () => {
     try {
       setLoading(true);
-      console.log('📚 Fetching courses for user:', userInfo);
+      console.log('📚 [Courses] Fetching courses from SQL Database for user:', userInfo);
 
-      if (!userInfo) {
-        console.log('⚠️ No user info, fetching all MIS courses');
-      }
-
-      // جلب المقررات بناءً على قسم الطالب
-      const department = userInfo?.major || 'MIS';
-      
+      // جلب المقررات المتاحة من SQL Database
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/courses?department=${department}`,
+        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/courses/available?studentId=${userInfo?.id}`,
         {
           headers: {
             Authorization: `Bearer ${publicAnonKey}`,
@@ -88,47 +82,57 @@ export const CoursesPage: React.FC = () => {
         }
       );
 
-      console.log('📚 Response status:', response.status);
+      console.log('📚 [Courses] Response status:', response.status);
       
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('❌ Server response error:', errorText);
-        throw new Error(`Server error: ${response.status} - ${errorText}`);
+        console.error('❌ [Courses] Server response error:', errorText);
+        throw new Error(`Server error: ${response.status}`);
       }
 
       const result = await response.json();
-      console.log('📚 Courses response:', result);
+      console.log('📚 [Courses] SQL Database response:', result);
 
-      if (result.courses) {
-        const coursesData = result.courses || [];
-        console.log('✅ Loaded', coursesData.length, 'courses');
+      if (result.success && result.courses) {
+        // تحويل البيانات من SQL format إلى format المكون
+        const coursesData = result.courses.map((offer: any) => ({
+          id: offer.courses.id,
+          course_id: offer.courses.course_id,
+          code: offer.courses.code,
+          name_ar: offer.courses.name_ar,
+          name_en: offer.courses.name_en,
+          nameAr: offer.courses.name_ar,
+          nameEn: offer.courses.name_en,
+          description_ar: offer.courses.description_ar,
+          description_en: offer.courses.description_en,
+          credits: offer.courses.credits,
+          credit_hours: offer.courses.credits,
+          level: offer.courses.level,
+          category: offer.courses.category,
+          prerequisites: offer.courses.prerequisites || [],
+          // معلومات العرض
+          offer_id: offer.id,
+          semester: offer.semester,
+          year: offer.year,
+          section: offer.section,
+          max_students: offer.max_students,
+          enrolled_students: offer.enrolled_students,
+          instructor: 'هيئة التدريس', // يمكن إضافة instructor_id لاحقاً
+        }));
         
-        // إذا كان الطالب لديه مستوى، نظهر المقررات حتى مستواه
-        let filteredCourses = coursesData;
-        if (userInfo?.level) {
-          filteredCourses = coursesData.filter((course: Course) => 
-            course.level <= userInfo.level
-          );
-          console.log('✅ Filtered to', filteredCourses.length, 'courses for level', userInfo.level);
-        }
-        
-        setCourses(filteredCourses);
-      } else if (result.error) {
-        console.error('❌ Failed to load courses:', result.error);
-        throw new Error(result.error);
+        console.log('✅ [Courses] Loaded', coursesData.length, 'courses from SQL');
+        setCourses(coursesData);
       } else {
-        console.error('❌ Unexpected response format:', result);
-        throw new Error('Unexpected response format from server');
+        console.error('❌ [Courses] Failed to load courses:', result.error);
+        throw new Error(result.error || 'Failed to load courses');
       }
     } catch (error: any) {
-      console.error('❌ Error fetching courses:', error);
-      console.error('❌ Error details:', error.message, error.stack);
+      console.error('❌ [Courses] Error fetching courses:', error);
       toast.error(
         language === 'ar' 
           ? `فشل في تحميل المقررات: ${error.message}` 
           : `Failed to load courses: ${error.message}`
       );
-      // عرض قائمة فارغة في حالة الخطأ
       setCourses([]);
     } finally {
       setLoading(false);

@@ -50,26 +50,26 @@ export const StudentDashboard: React.FC = () => {
 
   const fetchStatistics = async () => {
     try {
-      console.log('📊 [Dashboard] Fetching statistics from server...');
+      console.log('📊 [Dashboard] Fetching statistics from SQL Database...');
       
       const accessToken = localStorage.getItem('access_token');
-      if (!accessToken) {
+      if (!accessToken || !userInfo?.id) {
         console.warn('⚠️ [Dashboard] No access token for statistics');
         return;
       }
 
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/student/statistics`,
+        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/dashboard/student/${userInfo.id}`,
         {
           headers: {
-            Authorization: `Bearer ${accessToken}`,
+            Authorization: `Bearer ${publicAnonKey}`,
           },
         }
       );
 
       if (response.ok) {
         const result = await response.json();
-        console.log('✅ [Dashboard] Server statistics:', result.stats);
+        console.log('✅ [Dashboard] SQL Database statistics:', result.stats);
         setDbStats(result.stats);
       } else {
         console.error('❌ [Dashboard] Failed to fetch statistics:', response.status);
@@ -122,7 +122,7 @@ export const StudentDashboard: React.FC = () => {
             : 'Session expired, please login again'
         );
         
-        // إعادة التوجيه لصفحة تسجيل الدخول
+        // إعادة التوجيه لصفحة تسجيل الدخ��ل
         setTimeout(() => {
           window.location.reload();
         }, 2000);

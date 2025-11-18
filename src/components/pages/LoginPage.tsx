@@ -24,19 +24,8 @@ export const LoginPage: React.FC = () => {
       if (!email || !password) {
         toast.error(
           language === 'ar' 
-            ? 'يرجى إدخال البريد الإلكتروني وكلمة المرور' 
-            : 'Please enter email and password'
-        );
-        setLoading(false);
-        return;
-      }
-
-      // تحقق من البريد الإلكتروني
-      if (!email.endsWith('@kku.edu.sa')) {
-        toast.error(
-          language === 'ar' 
-            ? 'يجب استخدام البريد الإلكتروني الجامعي (@kku.edu.sa)' 
-            : 'University email required (@kku.edu.sa)'
+            ? 'يرجى إدخال الرقم الجامعي/الوظيفي وكلمة المرور' 
+            : 'Please enter ID and password'
         );
         setLoading(false);
         return;
@@ -44,9 +33,9 @@ export const LoginPage: React.FC = () => {
 
       console.log('🔐 محاولة تسجيل الدخول:', email);
 
-      // تسجيل الدخول عبر Backend
+      // تسجيل الدخول عبر Backend (SQL Database)
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/login`,
+        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/auth/login`,
         {
           method: 'POST',
           headers: {
@@ -54,7 +43,7 @@ export const LoginPage: React.FC = () => {
             Authorization: `Bearer ${publicAnonKey}`,
           },
           body: JSON.stringify({
-            email,
+            identifier: email, // يمكن أن يكون رقم جامعي أو إيميل
             password,
           }),
         }
@@ -64,50 +53,42 @@ export const LoginPage: React.FC = () => {
 
       if (!response.ok) {
         console.error('❌ خطأ في تسجيل الدخول:', result.error);
-        
-        if (result.error.includes('Invalid')) {
-          toast.error(
-            language === 'ar' 
-              ? 'البريد الإلكتروني أو كلمة المرور غير صحيحة' 
-              : 'Invalid email or password'
-          );
-        } else {
-          toast.error(
-            language === 'ar' 
-              ? 'حدث خطأ أثناء تسجيل الدخول' 
-              : 'An error occurred during login'
-          );
-        }
+        toast.error(
+          language === 'ar' 
+            ? result.error || 'بيانات الدخول غير صحيحة' 
+            : 'Invalid credentials'
+        );
         setLoading(false);
         return;
       }
 
       console.log('✅ تسجيل الدخول نجح:', result.user);
 
-      // حفظ بيانات المستخدم
+      // حفظ بيانات المستخدم من SQL Database
       const userInfo = {
-        name: result.user.full_name,
+        name: result.user.name,
         id: result.user.student_id,
         email: result.user.email,
-        major: result.user.major,
-        level: result.user.level,
-        gpa: result.user.gpa,
+        major: result.user.students?.[0]?.major || 'MIS',
+        level: result.user.students?.[0]?.level || 1,
+        gpa: result.user.students?.[0]?.gpa || 0,
         role: result.user.role || 'student',
-        access_token: result.user.access_token,
+        access_token: result.access_token,
       };
       
       setUserInfo(userInfo);
       setIsLoggedIn(true);
+      
+      // حفظ في localStorage
       localStorage.setItem('userInfo', JSON.stringify(userInfo));
-      localStorage.setItem('isLoggedIn', 'true');
-      localStorage.setItem('access_token', result.user.access_token);
+      localStorage.setItem('access_token', result.access_token);
       
       console.log('✅ بيانات المستخدم محفوظة:', userInfo);
       
       toast.success(
         language === 'ar' 
-          ? `🎉 مرحباً ${result.user.full_name}!` 
-          : `🎉 Welcome ${result.user.full_name}!`
+          ? `🎉 مرحباً ${result.user.name}!` 
+          : `🎉 Welcome ${result.user.name}!`
       );
 
       // التحويل التلقائي حسب الدور

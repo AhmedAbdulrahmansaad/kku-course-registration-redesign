@@ -35,6 +35,7 @@ import { MessagesPage } from './components/pages/MessagesPage';
 import { AnnouncementsPage } from './components/pages/AnnouncementsPage';
 import { AccessAgreementPage } from './components/pages/AccessAgreementPage';
 import { TranscriptPage } from './components/pages/TranscriptPage';
+import { SystemSetupPage } from './components/pages/SystemSetupPage';
 import { Toaster } from './components/ui/sonner';
 import { ArrowLeft, ArrowRight, Home } from 'lucide-react';
 import { Button } from './components/ui/button';
@@ -46,6 +47,9 @@ const AppContent: React.FC = () => {
   const routes = {
     // صفحة التعهد (أول صفحة - إزامية)
     accessAgreement: { component: <AccessAgreementPage />, public: true },
+    
+    // صفحة إعداد النظام (عامة - للتهيئة الأولية)
+    systemSetup: { component: <SystemSetupPage />, public: true },
     
     // صفحات عامة (لا تحتاج تسجيل دخول)
     home: { component: <HomePage />, public: true },

@@ -94,48 +94,43 @@ export const ManageCoursesPage: React.FC = () => {
   const fetchCourses = async () => {
     try {
       setLoading(true);
-      const accessToken = localStorage.getItem('access_token');
       
-      console.log('🔍 Fetching courses...');
+      console.log('🔍 [ManageCourses] Fetching courses from SQL Database...');
       
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/admin/courses`,
+        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/courses`,
         {
           headers: {
-            Authorization: `Bearer ${accessToken || publicAnonKey}`,
+            Authorization: `Bearer ${publicAnonKey}`,
           },
         }
       );
 
-      console.log('📚 Response status:', response.status);
+      console.log('📚 [ManageCourses] Response status:', response.status);
       
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('❌ Server response error:', errorText);
-        throw new Error(`Server error: ${response.status} - ${errorText}`);
+        console.error('❌ [ManageCourses] Server response error:', errorText);
+        throw new Error(`Server error: ${response.status}`);
       }
 
       const result = await response.json();
-      console.log('📚 Courses response:', result);
+      console.log('📚 [ManageCourses] SQL Database response:', result);
 
-      if (result.courses) {
-        const coursesData = result.courses || [];
-        console.log('✅ Loaded courses:', coursesData.length);
-        setCourses(coursesData);
-      } else if (result.error) {
-        throw new Error(result.error);
+      if (result.success && result.courses) {
+        console.log('✅ [ManageCourses] Loaded', result.courses.length, 'courses from SQL');
+        setCourses(result.courses);
       } else {
-        console.error('❌ Unexpected response format:', result);
-        throw new Error('Unexpected response format from server');
+        throw new Error(result.error || 'Failed to load courses');
       }
     } catch (error: any) {
-      console.error('❌ Error fetching courses:', error);
-      console.error('❌ Error details:', error.message, error.stack);
+      console.error('❌ [ManageCourses] Error fetching courses:', error);
       toast.error(
         language === 'ar' 
           ? `فشل في تحميل المقررات: ${error.message}` 
           : `Failed to load courses: ${error.message}`
       );
+      setCourses([]);
     } finally {
       setLoading(false);
     }

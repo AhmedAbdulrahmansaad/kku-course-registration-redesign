@@ -61,35 +61,33 @@ export const SupervisorDashboard: React.FC = () => {
 
   const fetchRegistrations = async () => {
     try {
-      const accessToken = localStorage.getItem('access_token');
-      if (!accessToken) {
-        toast.error('Unauthorized');
-        return;
-      }
-
+      console.log('📚 [SupervisorDashboard] Fetching registrations from SQL Database...');
+      
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/supervisor/pending-registrations`,
+        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/registrations?status=pending`,
         {
           headers: {
-            Authorization: `Bearer ${accessToken}`,
+            Authorization: `Bearer ${publicAnonKey}`,
           },
         }
       );
 
       const result = await response.json();
 
-      if (response.ok) {
+      if (response.ok && result.success) {
+        console.log('✅ [SupervisorDashboard] Loaded', result.registrations.length, 'registrations from SQL');
         setRegistrations(result.registrations || []);
       } else {
-        throw new Error(result.error);
+        throw new Error(result.error || 'Failed to load registrations');
       }
     } catch (error: any) {
-      console.error('Error fetching registrations:', error);
+      console.error('❌ [SupervisorDashboard] Error fetching registrations:', error);
       toast.error(
         language === 'ar' 
           ? 'فشل في تحميل الطلبات' 
           : 'Failed to load requests'
       );
+      setRegistrations([]);
     } finally {
       setLoading(false);
     }
