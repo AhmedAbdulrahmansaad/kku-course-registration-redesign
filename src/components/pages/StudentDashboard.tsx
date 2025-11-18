@@ -122,7 +122,7 @@ export const StudentDashboard: React.FC = () => {
             : 'Session expired, please login again'
         );
         
-        // إعادة التوجيه لصفحة تسجيل الدخ��ل
+        // إعادة التوجيه لصفحة تسجيل الدخل
         setTimeout(() => {
           window.location.reload();
         }, 2000);
@@ -190,6 +190,12 @@ export const StudentDashboard: React.FC = () => {
   const studentName = userInfo?.name || (language === 'ar' ? 'الطالب' : 'Student');
   const studentLevel = userInfo?.level || 1;
   const studentGPA = userInfo?.gpa || 0;
+
+  // ✅ طباعة معلومات الطالب للتأكد
+  console.log('👤 [StudentDashboard] UserInfo:', userInfo);
+  console.log('📊 [StudentDashboard] Student Level:', studentLevel);
+  console.log('📊 [StudentDashboard] Student GPA:', studentGPA);
+  console.log('📚 [StudentDashboard] Student Major:', userInfo?.major);
 
   return (
     <div className="space-y-6">

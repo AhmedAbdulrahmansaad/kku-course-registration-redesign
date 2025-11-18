@@ -101,8 +101,10 @@ export const SupervisorDashboard: React.FC = () => {
         return;
       }
 
+      console.log('✅ [SupervisorDashboard] Approving registration:', registrationId);
+
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/supervisor/approve-registration`,
+        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/admin/process-registration-request`,
         {
           method: 'POST',
           headers: {
@@ -110,26 +112,35 @@ export const SupervisorDashboard: React.FC = () => {
             Authorization: `Bearer ${accessToken}`,
           },
           body: JSON.stringify({
-            registrationId,
-            status: 'approved',
+            request_id: registrationId,
+            action: 'approve',
           }),
         }
       );
 
       const result = await response.json();
+      console.log('📡 [SupervisorDashboard] Response:', result);
 
-      if (response.ok) {
+      if (response.ok && result.success) {
         toast.success(
           language === 'ar' 
             ? '✅ تم قبول التسجيل بنجاح' 
             : '✅ Registration approved successfully'
         );
         fetchRegistrations();
+      } else if (result.error && result.error.includes('already')) {
+        // Handle "already processed" case
+        toast.info(
+          language === 'ar' 
+            ? `ℹ️ هذا الطلب ${result.currentStatus === 'approved' ? 'مقبول' : 'مرفوض'} بالفعل` 
+            : `ℹ️ This request is already ${result.currentStatus}`
+        );
+        fetchRegistrations(); // Refresh to update UI
       } else {
-        throw new Error(result.error);
+        throw new Error(result.error || 'Failed to approve registration');
       }
     } catch (error: any) {
-      console.error('Error approving registration:', error);
+      console.error('❌ Error approving registration:', error);
       toast.error(
         language === 'ar' 
           ? 'فشل في قبول التسجيل' 
@@ -146,8 +157,10 @@ export const SupervisorDashboard: React.FC = () => {
         return;
       }
 
+      console.log('❌ [SupervisorDashboard] Rejecting registration:', registrationId);
+
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/supervisor/approve-registration`,
+        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/admin/process-registration-request`,
         {
           method: 'POST',
           headers: {
@@ -155,27 +168,42 @@ export const SupervisorDashboard: React.FC = () => {
             Authorization: `Bearer ${accessToken}`,
           },
           body: JSON.stringify({
-            registrationId,
-            status: 'rejected',
-            reason: rejectionReason,
+            request_id: registrationId,
+            action: 'reject',
+            note: rejectionReason,
           }),
         }
       );
 
       const result = await response.json();
+      console.log('📡 [SupervisorDashboard] Response:', result);
 
-      if (response.ok) {
+      if (response.ok && result.success) {
         toast.success(
           language === 'ar' 
             ? '❌ تم رفض التسجيل' 
             : '❌ Registration rejected'
         );
+        setRejectDialogOpen(false);
+        setSelectedRegistration(null);
+        setRejectionReason('');
         fetchRegistrations();
+      } else if (result.error && result.error.includes('already')) {
+        // Handle "already processed" case
+        toast.info(
+          language === 'ar' 
+            ? `ℹ️ هذا الطلب ${result.currentStatus === 'approved' ? 'مقبول' : 'مرفوض'} بالفعل` 
+            : `ℹ️ This request is already ${result.currentStatus}`
+        );
+        setRejectDialogOpen(false);
+        setSelectedRegistration(null);
+        setRejectionReason('');
+        fetchRegistrations(); // Refresh to update UI
       } else {
-        throw new Error(result.error);
+        throw new Error(result.error || 'Failed to reject registration');
       }
     } catch (error: any) {
-      console.error('Error rejecting registration:', error);
+      console.error('❌ Error rejecting registration:', error);
       toast.error(
         language === 'ar' 
           ? 'فشل في رفض التسجيل' 
@@ -224,21 +252,21 @@ export const SupervisorDashboard: React.FC = () => {
 
           {/* Stats */}
           <div className="flex flex-wrap justify-center gap-4 mt-8">
-            <div className="bg-white/20 backdrop-blur-md px-6 py-3 rounded-2xl border border-white/30">
+            <div key="pending-stat" className="bg-white/20 backdrop-blur-md px-6 py-3 rounded-2xl border border-white/30">
               <div className="flex items-center gap-2">
                 <Clock className="h-5 w-5" />
                 <span className="font-bold">{pendingCount}</span>
                 <span>{language === 'ar' ? 'قيد الانتظار' : 'Pending'}</span>
               </div>
             </div>
-            <div className="bg-white/20 backdrop-blur-md px-6 py-3 rounded-2xl border border-white/30">
+            <div key="approved-stat" className="bg-white/20 backdrop-blur-md px-6 py-3 rounded-2xl border border-white/30">
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="h-5 w-5" />
                 <span className="font-bold">{approvedCount}</span>
                 <span>{language === 'ar' ? 'مقبول' : 'Approved'}</span>
               </div>
             </div>
-            <div className="bg-white/20 backdrop-blur-md px-6 py-3 rounded-2xl border border-white/30">
+            <div key="rejected-stat" className="bg-white/20 backdrop-blur-md px-6 py-3 rounded-2xl border border-white/30">
               <div className="flex items-center gap-2">
                 <XCircle className="h-5 w-5" />
                 <span className="font-bold">{rejectedCount}</span>

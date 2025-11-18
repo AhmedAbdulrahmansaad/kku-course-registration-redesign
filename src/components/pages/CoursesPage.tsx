@@ -33,6 +33,7 @@ import {
   SelectValue,
 } from '../ui/select';
 import { projectId, publicAnonKey } from '../../utils/supabase/info';
+import { fetchJSON, getErrorMessage } from '../../utils/fetchWithTimeout';
 
 interface Course {
   course_id: string;
@@ -64,7 +65,22 @@ export const CoursesPage: React.FC = () => {
   const [registering, setRegistering] = useState<string | null>(null);
 
   useEffect(() => {
+    // Set timeout for loading state
+    const loadingTimeout = setTimeout(() => {
+      if (loading) {
+        console.warn('⚠️ [Courses] Loading timeout - forcing stop');
+        setLoading(false);
+        toast.error(
+          language === 'ar'
+            ? 'انتهى وقت التحميل - يرجى المحاولة مرة أخرى'
+            : 'Loading timeout - Please try again'
+        );
+      }
+    }, 15000); // 15 seconds timeout
+
     fetchCourses();
+
+    return () => clearTimeout(loadingTimeout);
   }, [userInfo]);
 
   const fetchCourses = async () => {
@@ -72,32 +88,37 @@ export const CoursesPage: React.FC = () => {
       setLoading(true);
       console.log('📚 [Courses] Fetching courses from SQL Database for user:', userInfo);
 
-      // جلب المقررات المتاحة من SQL Database
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/courses/available?studentId=${userInfo?.id}`,
+      // التحقق من تسجيل الدخول
+      if (!userInfo || !userInfo.id) {
+        console.error('🚫 Access denied: User not logged in');
+        toast.error(
+          language === 'ar'
+            ? 'يرجى تسجيل الدخول أولاً'
+            : 'Please login first'
+        );
+        setCurrentPage('login');
+        setLoading(false);
+        return;
+      }
+
+      // جلب المقررات المتاحة من SQL Database باستخدام fetchJSON مع timeout
+      const result = await fetchJSON(
+        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/courses/available?studentId=${userInfo.id}`,
         {
           headers: {
             Authorization: `Bearer ${publicAnonKey}`,
           },
+          timeout: 10000, // 10 seconds timeout
         }
       );
 
-      console.log('📚 [Courses] Response status:', response.status);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ [Courses] Server response error:', errorText);
-        throw new Error(`Server error: ${response.status}`);
-      }
-
-      const result = await response.json();
       console.log('📚 [Courses] SQL Database response:', result);
 
       if (result.success && result.courses) {
         // تحويل البيانات من SQL format إلى format المكون
         const coursesData = result.courses.map((offer: any) => ({
           id: offer.courses.id,
-          course_id: offer.courses.course_id,
+          course_id: offer.courses.id,  // ✅ UUID (not course_id text!)
           code: offer.courses.code,
           name_ar: offer.courses.name_ar,
           name_en: offer.courses.name_en,
@@ -123,16 +144,20 @@ export const CoursesPage: React.FC = () => {
         console.log('✅ [Courses] Loaded', coursesData.length, 'courses from SQL');
         setCourses(coursesData);
       } else {
-        console.error('❌ [Courses] Failed to load courses:', result.error);
-        throw new Error(result.error || 'Failed to load courses');
+        console.warn('⚠️ [Courses] No courses returned from server');
+        setCourses([]);
+        if (result.error) {
+          throw new Error(result.error);
+        }
       }
     } catch (error: any) {
       console.error('❌ [Courses] Error fetching courses:', error);
-      toast.error(
-        language === 'ar' 
-          ? `فشل في تحميل المقررات: ${error.message}` 
-          : `Failed to load courses: ${error.message}`
+      const errorMessage = getErrorMessage(
+        error,
+        { ar: 'فشل في تحميل المقررات', en: 'Failed to load courses' },
+        language
       );
+      toast.error(errorMessage);
       setCourses([]);
     } finally {
       setLoading(false);

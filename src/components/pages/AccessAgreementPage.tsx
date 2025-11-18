@@ -160,11 +160,10 @@ export const AccessAgreementPage: React.FC = () => {
         console.log('Could not fetch IP address');
       }
 
-      // حفظ في قاعدة البيانات
+      // محاولة حفظ التعهد في قاعدة البيانات
       try {
-        console.log('📝 Saving agreement to database...');
         const response = await fetch(
-          `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/save-agreement`,
+          `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/agreements`,
           {
             method: 'POST',
             headers: {
@@ -181,17 +180,21 @@ export const AccessAgreementPage: React.FC = () => {
           }
         );
 
-        const result = await response.json();
-
-        if (response.ok) {
-          console.log('✅ Agreement saved successfully in database:', result);
-        } else {
-          console.warn('⚠️ Failed to save in database:', result);
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.warn('⚠️ Failed to save agreement in database:', errorText);
           toast.warning(
             language === 'ar'
               ? 'تم حفظ التعهد محلياً فقط'
               : 'Agreement saved locally only'
           );
+        } else {
+          try {
+            const result = await response.json();
+            console.log('✅ Agreement saved successfully in database:', result);
+          } catch (jsonError) {
+            console.warn('⚠️ Response saved but could not parse JSON:', jsonError);
+          }
         }
       } catch (dbError) {
         console.warn('⚠️ Database error:', dbError);

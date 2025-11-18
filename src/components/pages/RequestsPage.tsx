@@ -40,6 +40,7 @@ import {
   DialogTitle,
 } from '../ui/dialog';
 import { projectId, publicAnonKey } from '../../utils/supabase/info';
+import { fetchJSON, getErrorMessage } from '../../utils/fetchWithTimeout';
 
 interface RegistrationRequest {
   request_id: string;
@@ -84,43 +85,91 @@ export const RequestsPage: React.FC = () => {
   const [processing, setProcessing] = useState(false);
 
   useEffect(() => {
+    // Set timeout for loading state
+    const loadingTimeout = setTimeout(() => {
+      if (loading) {
+        console.warn('⚠️ [Requests] Loading timeout - forcing stop');
+        setLoading(false);
+        toast.error(
+          language === 'ar'
+            ? 'انتهى وقت التحميل - يرجى المحاولة مرة أخرى'
+            : 'Loading timeout - Please try again'
+        );
+      }
+    }, 15000); // 15 seconds timeout
+
     fetchRequests();
+
+    return () => clearTimeout(loadingTimeout);
   }, []);
 
   const fetchRequests = async () => {
     try {
       setLoading(true);
-      console.log('📋 Fetching registration requests...');
+      console.log('📋 [Requests] Fetching registration requests...');
 
       const accessToken = localStorage.getItem('access_token');
       if (!accessToken) {
         toast.error(language === 'ar' ? 'يرجى تسجيل الدخول' : 'Please login');
+        setLoading(false);
         return;
       }
 
-      const response = await fetch(
+      const result = await fetchJSON(
         `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/admin/registration-requests`,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
           },
+          timeout: 10000, // 10 seconds timeout
         }
       );
 
-      const result = await response.json();
-      console.log('📋 Requests response:', result);
+      console.log('📋 [Requests] Response:', result);
 
-      if (response.ok) {
+      if (result.success) {
         setRequests(result.requests || []);
-        console.log('✅ Loaded', result.requests?.length || 0, 'requests');
+        console.log('✅ [Requests] Loaded', result.requests?.length || 0, 'requests');
+        
+        // ✅ طباعة تفصيلية للطلبات
+        if (result.requests && result.requests.length > 0) {
+          console.log('📊 [Requests] Sample request data:', result.requests[0]);
+          console.log('👤 [Requests] Student data in first request:', result.requests[0]?.student);
+          console.log('📚 [Requests] Course data in first request:', result.requests[0]?.course);
+        } else {
+          console.log('ℹ️ [Requests] No pending requests found');
+        }
       } else {
-        throw new Error(result.error);
+        // Handle specific errors
+        if (result.error === 'Admin or Supervisor access required') {
+          toast.error(
+            language === 'ar' 
+              ? '⚠️ هذه الصفحة تتطلب صلاحيات مدير أو مشرف. يرجى تسجيل الدخول بحساب مناسب.' 
+              : '⚠️ This page requires admin or supervisor privileges. Please login with appropriate account.'
+          );
+          toast.info(
+            language === 'ar'
+              ? 'للحصول على حساب مدير، اذهب إلى صفحة System Setup'
+              : 'To create an admin account, go to System Setup page'
+          );
+        } else if (result.error === 'User not found') {
+          toast.error(
+            language === 'ar' 
+              ? 'المستخدم غير موجود في قاعدة البيانات' 
+              : 'User not found in database'
+          );
+        } else {
+          throw new Error(result.error || 'Failed to load requests');
+        }
       }
     } catch (error: any) {
-      console.error('Error fetching requests:', error);
-      toast.error(
-        language === 'ar' ? 'فشل في تحميل الطلبات' : 'Failed to load requests'
+      console.error('❌ [Requests] Error fetching requests:', error);
+      const errorMessage = getErrorMessage(
+        error,
+        { ar: 'فشل في تحميل الطلبات', en: 'Failed to load requests' },
+        language
       );
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -172,6 +221,13 @@ export const RequestsPage: React.FC = () => {
         return;
       }
 
+      console.log('📝 [Requests] Processing request:', {
+        request_id: selectedRequest.request_id,
+        action: reviewAction,
+        student: selectedRequest.student?.full_name,
+        course: selectedRequest.course?.code,
+      });
+
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/admin/process-registration-request`,
         {
@@ -189,9 +245,9 @@ export const RequestsPage: React.FC = () => {
       );
 
       const result = await response.json();
-      console.log('📋 Process request response:', result);
+      console.log('📋 [Requests] Process request response:', result);
 
-      if (response.ok) {
+      if (response.ok && result.success) {
         const updatedRequests = requests.map(request => {
           if (request.request_id === selectedRequest.request_id) {
             return {
@@ -224,10 +280,12 @@ export const RequestsPage: React.FC = () => {
         setSelectedRequest(null);
         setReviewNote('');
       } else {
-        throw new Error(result.error);
+        const errorMessage = result.error || 'Failed to update registration';
+        console.error('❌ [Requests] Server error:', errorMessage);
+        throw new Error(errorMessage);
       }
     } catch (error: any) {
-      console.error('Error processing request:', error);
+      console.error('❌ [Requests] Error processing request:', error);
       toast.error(
         language === 'ar' ? 'فشل في معالجة الطلب' : 'Failed to process request'
       );

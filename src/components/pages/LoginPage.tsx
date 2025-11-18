@@ -64,10 +64,17 @@ export const LoginPage: React.FC = () => {
 
       console.log('✅ تسجيل الدخول نجح:', result.user);
 
+      // ✅ طباعة تفصيلية لبيانات الطالب
+      console.log('📊 Student data from DB:', result.user.students);
+      console.log('📊 Level from students table:', result.user.students?.[0]?.level);
+      console.log('📊 GPA from students table:', result.user.students?.[0]?.gpa);
+      console.log('📊 Major from students table:', result.user.students?.[0]?.major);
+
       // حفظ بيانات المستخدم من SQL Database
       const userInfo = {
         name: result.user.name,
         id: result.user.student_id,
+        user_db_id: result.user.id, // ✅ إضافة ID من جدول users
         email: result.user.email,
         major: result.user.students?.[0]?.major || 'MIS',
         level: result.user.students?.[0]?.level || 1,
@@ -75,6 +82,8 @@ export const LoginPage: React.FC = () => {
         role: result.user.role || 'student',
         access_token: result.access_token,
       };
+      
+      console.log('💾 Saving userInfo to localStorage:', userInfo);
       
       setUserInfo(userInfo);
       setIsLoggedIn(true);

@@ -2,47 +2,51 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../../contexts/AppContext';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
-import { Input } from '../ui/input';
+import { Badge } from '../ui/badge';
 import { Label } from '../ui/label';
+import { Progress } from '../ui/progress';
 import { 
   FileText, 
-  Download,
+  Download, 
   Printer,
-  BarChart3,
-  BookOpen,
-  Award,
   TrendingUp,
-  User,
-  Mail,
-  Shield,
-  GraduationCap,
-  Loader2,
-  AlertCircle,
-  Filter,
-  Search,
-  Users,
+  Award,
   Calendar,
-  Target,
-  ArrowLeft,
-  Sparkles,
-  TrendingDown,
+  Clock,
+  BookOpen,
   CheckCircle,
   XCircle,
-  Clock
+  AlertCircle,
+  Loader2,
+  Search,
+  Filter,
+  ArrowLeft,
+  BarChart3,
+  Sparkles,
+  Users,
+  User,
+  Target,
+  GraduationCap
 } from 'lucide-react';
-import { Badge } from '../ui/badge';
-import { Progress } from '../ui/progress';
 import { toast } from 'sonner@2.0.3';
 import { 
   exportAsPDF, 
   exportAsWord, 
   exportAsExcel,
-  generateExportHeader, 
-  generateExportFooter 
+  generateExportHeader,
+  generateExportFooter
 } from '../../utils/exportUtils';
 import { DownloadButton } from '../DownloadButton';
 import { projectId, publicAnonKey } from '../../utils/supabase/info';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Input } from '../ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../ui/select';
+import { fetchJSON, getErrorMessage } from '../../utils/fetchWithTimeout';
 
 interface RegistrationData {
   registration_id: string;
@@ -104,13 +108,28 @@ export const ReportsPage: React.FC = () => {
   const isAdmin = userRole === 'admin';
 
   useEffect(() => {
+    // Set timeout for loading state
+    const loadingTimeout = setTimeout(() => {
+      if (loading) {
+        console.warn('⚠️ [Reports] Loading timeout - forcing stop');
+        setLoading(false);
+        toast.error(
+          language === 'ar'
+            ? 'انتهى وقت التحميل - يرجى المحاولة مرة أخرى'
+            : 'Loading timeout - Please try again'
+        );
+      }
+    }, 15000); // 15 seconds timeout
+
     if (isStudent) {
-      fetchStudentRegistrations();
+      fetchRegistrations();
     } else if (isAdmin) {
       fetchAllStudents();
     } else {
       setLoading(false);
     }
+
+    return () => clearTimeout(loadingTimeout);
   }, [isStudent, isAdmin]);
 
   // Apply filters
@@ -120,41 +139,62 @@ export const ReportsPage: React.FC = () => {
     }
   }, [selectedMajor, selectedLevel, searchStudentId, allStudents]);
 
-  const fetchStudentRegistrations = async () => {
+  const fetchRegistrations = async () => {
     try {
       setLoading(true);
       console.log('📊 [Reports] Fetching student registrations...');
 
-      const accessToken = localStorage.getItem('access_token');
-      if (!accessToken) {
-        console.warn('⚠️ [Reports] No access token found');
+      if (!userInfo?.id) {
+        console.error('🚫 Access denied: User not logged in');
+        toast.error(
+          language === 'ar'
+            ? 'يرجى تسجيل الدخول أولاً'
+            : 'Please login first'
+        );
         setLoading(false);
         return;
       }
 
-      const response = await fetch(
+      const accessToken = localStorage.getItem('access_token');
+      if (!accessToken) {
+        console.warn('⚠️ [Reports] No access token found');
+        toast.error(
+          language === 'ar'
+            ? 'يرجى تسجيل الدخول مرة أخرى'
+            : 'Please login again'
+        );
+        setLoading(false);
+        return;
+      }
+
+      const result = await fetchJSON(
         `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/student/registrations`,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
           },
+          timeout: 10000, // 10 seconds timeout
         }
       );
 
-      const result = await response.json();
       console.log('📊 [Reports] Response:', result);
 
-      if (response.ok && result.registrations) {
+      if (result.registrations) {
         setRegistrations(result.registrations);
         console.log('✅ [Reports] Loaded', result.registrations.length, 'registrations');
       } else {
-        console.error('❌ [Reports] Error:', result);
+        console.warn('⚠️ [Reports] No registrations returned');
         setRegistrations([]);
       }
     } catch (error: any) {
       console.error('❌ [Reports] Error fetching registrations:', error);
       setRegistrations([]);
-      toast.error(language === 'ar' ? 'فشل في تحميل البيانات' : 'Failed to load data');
+      const errorMessage = getErrorMessage(
+        error,
+        { ar: 'فشل في تحميل البيانات', en: 'Failed to load data' },
+        language
+      );
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -173,50 +213,37 @@ export const ReportsPage: React.FC = () => {
         return;
       }
 
-      const response = await fetch(
+      const result = await fetchJSON(
         `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/admin/students`,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
           },
+          timeout: 10000, // 10 seconds timeout
         }
       );
 
-      console.log('📡 [Reports] Response status:', response.status);
+      console.log('📊 [Reports] Admin students response:', result);
 
-      if (response.status === 401) {
-        console.error('❌ [Reports] Unauthorized');
-        toast.error(language === 'ar' ? 'غير مصرح بالوصول' : 'Unauthorized');
-        setLoading(false);
-        return;
-      }
-
-      if (response.status === 403) {
-        console.error('❌ [Reports] Forbidden - admin access required');
-        toast.error(language === 'ar' ? 'يتطلب صلاحيات مدير' : 'Admin access required');
-        setLoading(false);
-        return;
-      }
-
-      const result = await response.json();
-      console.log('📊 [Reports] Students data:', result);
-
-      if (response.ok && result.students) {
-        const students = result.students.filter((s: StudentData) => s.role === 'student');
-        console.log('✅ [Reports] Found', students.length, 'students');
-        setAllStudents(students);
-        setFilteredStudents(students);
+      if (result.students) {
+        setAllStudents(result.students);
+        setFilteredStudents(result.students);
+        console.log('✅ [Reports] Loaded', result.students.length, 'students');
       } else {
-        console.error('❌ [Reports] Error:', result);
-        toast.error(language === 'ar' ? `خطأ: ${result.error}` : `Error: ${result.error}`);
+        console.warn('⚠️ [Reports] No students returned');
         setAllStudents([]);
         setFilteredStudents([]);
       }
     } catch (error: any) {
       console.error('❌ [Reports] Error fetching students:', error);
-      toast.error(language === 'ar' ? 'فشل في تحميل البيانات' : 'Failed to load data');
       setAllStudents([]);
       setFilteredStudents([]);
+      const errorMessage = getErrorMessage(
+        error,
+        { ar: 'فشل في تحميل بيانات الطلاب', en: 'Failed to load student data' },
+        language
+      );
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -246,12 +273,12 @@ export const ReportsPage: React.FC = () => {
 
   const fetchStudentReport = async (studentId: string) => {
     try {
-      console.log('📊 [Reports] Fetching report for student:', studentId);
+      console.log('📊 [Reports] Fetching student report for:', studentId);
 
       const accessToken = localStorage.getItem('access_token');
       if (!accessToken) {
         toast.error(language === 'ar' ? 'يرجى تسجيل الدخول' : 'Please login');
-        return;
+        return null;
       }
 
       const response = await fetch(
@@ -263,9 +290,12 @@ export const ReportsPage: React.FC = () => {
         }
       );
 
+      console.log('📡 [Reports] Response status:', response.status);
+
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to fetch report');
+        const errorText = await response.text();
+        console.error('❌ [Reports] Server error:', errorText);
+        throw new Error(`Server error: ${response.status}`);
       }
 
       const result = await response.json();
@@ -281,10 +311,31 @@ export const ReportsPage: React.FC = () => {
 
   const handleViewReport = async (studentId: string) => {
     setSelectedStudentId(studentId);
+    
+    console.log('🔍 [Reports] Requesting report for student ID:', studentId);
+    
     const report = await fetchStudentReport(studentId);
     
     if (report) {
+      console.log('📊 [Reports] Report received:', report);
+      console.log('👤 [Reports] Student data:', report.student);
+      console.log('📚 [Reports] Registrations:', report.registrations?.length || 0);
+      console.log('📈 [Reports] Stats:', report.stats);
+      
       setStudentReports([report]);
+      
+      toast.success(
+        language === 'ar' 
+          ? `✅ تم تحميل تقرير ${report.student?.name || 'الطالب'}`
+          : `✅ Report loaded for ${report.student?.name || 'student'}`
+      );
+    } else {
+      console.error('❌ [Reports] No report data received');
+      toast.error(
+        language === 'ar'
+          ? 'فشل في تحميل التقرير'
+          : 'Failed to load report'
+      );
     }
   };
 
@@ -774,7 +825,7 @@ export const ReportsPage: React.FC = () => {
                                   ? language === 'ar' ? 'مقبول' : 'Approved'
                                   : reg.status === 'pending'
                                   ? language === 'ar' ? 'قيد الانتظار' : 'Pending'
-                                  : language === 'ar' ? 'مرفوض' : 'Rejected'}
+                                  : language === 'ar' ? 'مروض' : 'Rejected'}
                               </Badge>
                             </div>
                           </div>

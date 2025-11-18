@@ -40,13 +40,14 @@ import { projectId, publicAnonKey } from '../../utils/supabase/info';
 interface Student {
   user_id: string;
   student_id: string;
-  full_name: string;
+  name: string; // ✅ تغيير من full_name إلى name
   email: string;
   major: string;
   level: number;
   gpa: number | null;
   role: string;
   created_at: string;
+  students?: any[]; // ✅ إضافة nested data
 }
 
 export const ManageStudentsPage: React.FC = () => {
@@ -67,29 +68,54 @@ export const ManageStudentsPage: React.FC = () => {
   const fetchStudents = async () => {
     try {
       setLoading(true);
-      const accessToken = localStorage.getItem('access_token');
+      
+      console.log('📚 [ManageStudents] Fetching students from SQL Database...');
       
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/admin/students`,
+        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/students`,
         {
           headers: {
-            Authorization: `Bearer ${accessToken || publicAnonKey}`,
+            Authorization: `Bearer ${publicAnonKey}`,
           },
         }
       );
 
-      const result = await response.json();
+      console.log('📚 [ManageStudents] Response status:', response.status);
 
-      if (response.ok) {
-        setStudents(result.students || []);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ [ManageStudents] Server error:', errorText);
+        throw new Error(`Server error: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ [ManageStudents] Loaded students from SQL:', result);
+
+      if (result.success) {
+        // ✅ معالجة البيانات: دمج users مع students
+        const processedStudents = (result.students || []).map((user: any) => ({
+          user_id: user.id,
+          student_id: user.student_id,
+          name: user.name,
+          email: user.email,
+          major: user.students?.[0]?.major || 'MIS',
+          level: user.students?.[0]?.level || 1,
+          gpa: user.students?.[0]?.gpa || null,
+          role: user.role,
+          created_at: user.created_at,
+        }));
+        
+        console.log('✅ [ManageStudents] Processed students:', processedStudents);
+        setStudents(processedStudents);
       } else {
-        throw new Error(result.error);
+        throw new Error(result.error || 'Failed to load students');
       }
     } catch (error: any) {
-      console.error('Error fetching students:', error);
+      console.error('❌ [ManageStudents] Error fetching students:', error);
       toast.error(
         language === 'ar' ? 'فشل في تحميل الطلاب' : 'Failed to load students'
       );
+      setStudents([]);
     } finally {
       setLoading(false);
     }
@@ -102,23 +128,30 @@ export const ManageStudentsPage: React.FC = () => {
 
       if (!selectedStudent) return;
 
+      console.log('🗑️ [ManageStudents] Deleting student:', selectedStudent.student_id);
+
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/admin/delete-student`,
+        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/students/${selectedStudent.student_id}`,
         {
           method: 'DELETE',
           headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${accessToken}`,
+            Authorization: `Bearer ${accessToken || publicAnonKey}`,
           },
-          body: JSON.stringify({
-            studentId: selectedStudent.student_id,
-          }),
         }
       );
 
-      const result = await response.json();
+      console.log('🗑️ [ManageStudents] Delete response status:', response.status);
 
-      if (response.ok) {
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ [ManageStudents] Delete error:', errorText);
+        throw new Error(`Server error: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ [ManageStudents] Student deleted:', result);
+
+      if (result.success) {
         toast.success(
           language === 'ar'
             ? '✅ تم حذف الطالب بنجاح'
@@ -128,10 +161,10 @@ export const ManageStudentsPage: React.FC = () => {
         setSelectedStudent(null);
         fetchStudents();
       } else {
-        throw new Error(result.error);
+        throw new Error(result.error || 'Failed to delete student');
       }
     } catch (error: any) {
-      console.error('Error deleting student:', error);
+      console.error('❌ [ManageStudents] Error deleting student:', error);
       toast.error(
         error.message || (language === 'ar' ? 'فشل في حذف الطالب' : 'Failed to delete student')
       );
@@ -147,10 +180,10 @@ export const ManageStudentsPage: React.FC = () => {
 
   const filteredStudents = students.filter(student => {
     // تجاهل القيم الفارغة أو null
-    if (!student || !student.full_name) return false;
+    if (!student || !student.name) return false;
     
     const matchesSearch = 
-      student.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       student.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       student.student_id.toLowerCase().includes(searchTerm.toLowerCase());
     
@@ -310,7 +343,7 @@ export const ManageStudentsPage: React.FC = () => {
                 
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2 flex-wrap">
-                    <h3 className="text-xl font-bold">{student.full_name}</h3>
+                    <h3 className="text-xl font-bold">{student.name}</h3>
                     <Badge variant="secondary" className="font-mono">
                       {student.student_id}
                     </Badge>
@@ -394,7 +427,7 @@ export const ManageStudentsPage: React.FC = () => {
 
           {selectedStudent && (
             <div className="py-4 space-y-2">
-              <p className="font-medium text-lg">{selectedStudent.full_name}</p>
+              <p className="font-medium text-lg">{selectedStudent.name}</p>
               <p className="text-sm text-muted-foreground">{selectedStudent.student_id}</p>
               <p className="text-sm text-muted-foreground">{selectedStudent.email}</p>
             </div>

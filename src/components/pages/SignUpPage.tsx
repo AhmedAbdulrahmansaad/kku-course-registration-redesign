@@ -184,9 +184,16 @@ export const SignUpPage: React.FC = () => {
     setLoading(true);
 
     try {
-      console.log('📝 إنشاء حساب:', formData.role, formData.email);
+      // إنشاء الحساب عبر Backend (SQL Database)
+      console.log('📝 [Signup] Creating account with data:', {
+        studentId: formData.studentId,
+        email: formData.email,
+        role: formData.role,
+        level: formData.level ? parseInt(formData.level) : 1,
+        major: formData.major || 'MIS',
+        gpa: formData.gpa ? parseFloat(formData.gpa) : 0.0,
+      });
 
-      // استدعاء API إنشاء الحساب (SQL Database)
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/auth/signup`,
         {
@@ -201,6 +208,10 @@ export const SignUpPage: React.FC = () => {
             password: formData.password,
             name: formData.fullName,
             phone: formData.phone || '',
+            role: formData.role, // ✅ إضافة الدور
+            level: formData.level ? parseInt(formData.level) : 1, // ✅ إضافة المستوى
+            major: formData.major || 'MIS', // ✅ إضافة التخصص
+            gpa: formData.gpa ? parseFloat(formData.gpa) : 0.0, // ✅ إضافة المعدل
           }),
         }
       );

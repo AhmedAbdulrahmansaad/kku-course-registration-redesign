@@ -136,6 +136,55 @@ export const ManageCoursesPage: React.FC = () => {
     }
   };
 
+  const initializeCourses = async () => {
+    try {
+      setSaving(true);
+      console.log('📥 [ManageCourses] Initializing courses...');
+      
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/init-courses`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${publicAnonKey}`,
+          },
+        }
+      );
+
+      console.log('📡 [ManageCourses] Init response status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ [ManageCourses] Init error:', errorText);
+        throw new Error(`Server error: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ [ManageCourses] Init result:', result);
+
+      if (result.success) {
+        toast.success(
+          language === 'ar'
+            ? `✅ تم تحميل ${result.created} مقرر بنجاح`
+            : `✅ Successfully loaded ${result.created} courses`
+        );
+        await fetchCourses();
+      } else {
+        throw new Error(result.error || 'Failed to initialize courses');
+      }
+    } catch (error: any) {
+      console.error('❌ [ManageCourses] Error initializing courses:', error);
+      toast.error(
+        language === 'ar'
+          ? `فشل في تحميل المقررات الأولية: ${error.message}`
+          : `Failed to initialize courses: ${error.message}`
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleAddCourse = async () => {
     try {
       setSaving(true);
@@ -262,23 +311,30 @@ export const ManageCoursesPage: React.FC = () => {
 
       if (!selectedCourse) return;
 
+      console.log('🗑️ [ManageCourses] Deleting course:', selectedCourse.course_id);
+
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/admin/delete-course`,
+        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/courses/${selectedCourse.course_id}`,
         {
           method: 'DELETE',
           headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${accessToken}`,
+            Authorization: `Bearer ${accessToken || publicAnonKey}`,
           },
-          body: JSON.stringify({
-            courseId: selectedCourse.course_id,
-          }),
         }
       );
 
-      const result = await response.json();
+      console.log('🗑️ [ManageCourses] Delete response status:', response.status);
 
-      if (response.ok) {
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ [ManageCourses] Delete error:', errorText);
+        throw new Error(`Server error: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ [ManageCourses] Course deleted:', result);
+
+      if (result.success) {
         toast.success(
           language === 'ar'
             ? '✅ تم حذف المقرر بنجاح'
@@ -288,10 +344,10 @@ export const ManageCoursesPage: React.FC = () => {
         setSelectedCourse(null);
         fetchCourses();
       } else {
-        throw new Error(result.error);
+        throw new Error(result.error || 'Failed to delete course');
       }
     } catch (error: any) {
-      console.error('Error deleting course:', error);
+      console.error('❌ [ManageCourses] Error deleting course:', error);
       toast.error(
         error.message || (language === 'ar' ? 'فشل في حذف المقرر' : 'Failed to delete course')
       );
@@ -515,6 +571,21 @@ export const ManageCoursesPage: React.FC = () => {
               <BookOpen className="h-5 w-5 mr-2" />
               {language === 'ar' ? 'إضافة من القائمة' : 'Add from List'}
             </Button>
+
+            {courses.length === 0 && (
+              <Button
+                onClick={initializeCourses}
+                disabled={saving}
+                className="bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 text-white font-bold"
+              >
+                {saving ? (
+                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                ) : (
+                  <GraduationCap className="h-5 w-5 mr-2" />
+                )}
+                {language === 'ar' ? 'تحميل 49 مقرر' : 'Load 49 Courses'}
+              </Button>
+            )}
 
             <Button
               onClick={fetchCourses}

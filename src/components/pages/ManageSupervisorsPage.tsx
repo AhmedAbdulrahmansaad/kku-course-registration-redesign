@@ -43,12 +43,15 @@ import { projectId, publicAnonKey } from '../../utils/supabase/info';
 
 interface Supervisor {
   user_id: string;
-  full_name: string;
+  id?: string;
+  name: string; // ✅ تغيير من full_name إلى name
   email: string;
   role: string;
+  student_id?: string;
   department?: string;
   active?: boolean;
   created_at: string;
+  supervisors?: any[];
 }
 
 export const ManageSupervisorsPage: React.FC = () => {
@@ -352,7 +355,7 @@ export const ManageSupervisorsPage: React.FC = () => {
   const openEditDialog = (supervisor: Supervisor) => {
     setSelectedSupervisor(supervisor);
     setFormData({
-      fullName: supervisor.full_name,
+      fullName: supervisor.name,
       email: supervisor.email,
       password: '',
       department: supervisor.department || 'نظم المعلومات الإدارية',
@@ -377,7 +380,7 @@ export const ManageSupervisorsPage: React.FC = () => {
   };
 
   const filteredSupervisors = supervisors.filter(supervisor =>
-    supervisor.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    supervisor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     supervisor.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -483,8 +486,8 @@ export const ManageSupervisorsPage: React.FC = () => {
         </Card>
       ) : (
         <div className="grid gap-6">
-          {filteredSupervisors.map((supervisor) => (
-            <Card key={supervisor.user_id} className="p-6 hover:shadow-lg transition-shadow">
+          {filteredSupervisors.map((supervisor, index) => (
+            <Card key={supervisor.user_id || supervisor.id || supervisor.email || index} className="p-6 hover:shadow-lg transition-shadow">
               <div className="flex flex-col lg:flex-row items-start justify-between gap-4">
                 <div className="flex items-start gap-4 flex-1">
                   <div className={`p-4 rounded-xl text-white ${
@@ -497,7 +500,7 @@ export const ManageSupervisorsPage: React.FC = () => {
                   
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2 flex-wrap">
-                      <h3 className="text-2xl font-bold">{supervisor.full_name}</h3>
+                      <h3 className="text-2xl font-bold">{supervisor.name}</h3>
                       <Badge className={
                         supervisor.role === 'admin' 
                           ? 'bg-purple-600' 
@@ -803,8 +806,8 @@ export const ManageSupervisorsPage: React.FC = () => {
             </DialogTitle>
             <DialogDescription>
               {language === 'ar'
-                ? `هل أنت متأكد من حذف المشرف "${selectedSupervisor?.full_name}"؟ هذا الإجراء لا يمكن التراجع عنه.`
-                : `Are you sure you want to delete supervisor "${selectedSupervisor?.full_name}"? This action cannot be undone.`}
+                ? `هل أنت متأكد من حذف المشرف "${selectedSupervisor?.name}"؟ هذا الإجراء لا يمكن التراجع عنه.`
+                : `Are you sure you want to delete supervisor "${selectedSupervisor?.name}"? This action cannot be undone.`}
             </DialogDescription>
           </DialogHeader>
 

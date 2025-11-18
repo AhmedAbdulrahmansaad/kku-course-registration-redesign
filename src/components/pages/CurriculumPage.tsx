@@ -15,11 +15,13 @@ import {
   CheckCircle2,
   AlertCircle,
   Sparkles,
+  Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import { projectId, publicAnonKey } from '../../utils/supabase/info';
 import { KKULogoSVG } from '../KKULogoSVG';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../ui/collapsible';
+import { fetchJSON, getErrorMessage } from '../../utils/fetchWithTimeout';
 
 interface Course {
   course_id: string;
@@ -42,7 +44,7 @@ interface CurriculumData {
   levelSummary: Array<{
     level: number;
     courses: number;
-    credit_hours: number;
+    credits: number;
   }>;
   totalCourses: number;
   totalCreditHours: number;
@@ -56,36 +58,68 @@ export const CurriculumPage: React.FC = () => {
   const [initializingCourses, setInitializingCourses] = useState(false);
 
   useEffect(() => {
+    // Set timeout for loading state
+    const loadingTimeout = setTimeout(() => {
+      if (loading) {
+        console.warn('⚠️ [Curriculum] Loading timeout - forcing stop');
+        setLoading(false);
+        toast.error(
+          language === 'ar'
+            ? 'انتهى وقت التحميل - يرجى المحاولة مرة أخرى'
+            : 'Loading timeout - Please try again'
+        );
+      }
+    }, 15000); // 15 seconds timeout
+
     fetchCurriculum();
+
+    return () => clearTimeout(loadingTimeout);
   }, []);
 
   const fetchCurriculum = async () => {
     try {
-      console.log('🔍 Fetching curriculum from backend...');
-      const response = await fetch(
+      setLoading(true);
+      console.log('🔍 [Curriculum] Fetching curriculum from backend...');
+      
+      const result = await fetchJSON(
         `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/curriculum?department=MIS`,
         {
           headers: {
             Authorization: `Bearer ${publicAnonKey}`,
           },
+          timeout: 10000, // 10 seconds timeout
         }
       );
 
-      const result = await response.json();
-      console.log('📚 Curriculum response:', result);
+      console.log('📚 [Curriculum] Response:', result);
 
-      if (response.ok) {
-        setCurriculumData(result);
-        console.log('✅ Curriculum loaded successfully:', result.totalCourses, 'courses');
+      if (result.success) {
+        // Map coursesByLevel to curriculum for compatibility
+        const mappedData = {
+          department: result.department?.code || 'MIS',
+          curriculum: result.coursesByLevel || {},
+          levelSummary: result.levelSummary || [],
+          totalCourses: result.totalCourses || 0,
+          totalCreditHours: result.totalCreditHours || 0,
+        };
+        setCurriculumData(mappedData);
+        console.log('✅ [Curriculum] Loaded successfully:', mappedData.totalCourses, 'courses');
       } else {
-        console.error('❌ Error response:', result);
-        throw new Error(result.error);
+        console.warn('⚠️ [Curriculum] No curriculum data returned');
+        setCurriculumData(null);
+        if (result.error) {
+          throw new Error(result.error);
+        }
       }
     } catch (error: any) {
-      console.error('Error fetching curriculum:', error);
-      toast.error(
-        language === 'ar' ? 'فشل في تحميل المنهج الدراسي' : 'Failed to load curriculum'
+      console.error('❌ [Curriculum] Error fetching curriculum:', error);
+      const errorMessage = getErrorMessage(
+        error,
+        { ar: 'فشل في تحميل المنهج الدراسي', en: 'Failed to load curriculum' },
+        language
       );
+      toast.error(errorMessage);
+      setCurriculumData(null);
     } finally {
       setLoading(false);
     }
@@ -94,9 +128,9 @@ export const CurriculumPage: React.FC = () => {
   const initializeCourses = async () => {
     try {
       setInitializingCourses(true);
-      console.log('📥 Initializing courses...');
+      console.log('📥 [Curriculum] Initializing courses...');
       
-      const response = await fetch(
+      const result = await fetchJSON(
         `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/init-courses`,
         {
           method: 'POST',
@@ -104,30 +138,33 @@ export const CurriculumPage: React.FC = () => {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${publicAnonKey}`,
           },
+          timeout: 30000, // 30 seconds for initialization
         }
       );
 
-      const result = await response.json();
-      console.log('📚 Init courses response:', result);
+      console.log('📚 [Curriculum] Init courses response:', result);
 
-      if (response.ok) {
+      if (result.success || result.created) {
         toast.success(
           language === 'ar'
-            ? `✅ تم تحميل ${result.created} مقرر بنجاح`
-            : `✅ Successfully loaded ${result.created} courses`
+            ? `✅ تم تحميل ${result.created || result.totalCourses || 0} مقرر بنجاح`
+            : `✅ Successfully loaded ${result.created || result.totalCourses || 0} courses`
         );
-        console.log('✅ Courses initialized:', result);
+        console.log('✅ [Curriculum] Courses initialized:', result);
         // Reload curriculum
         await fetchCurriculum();
       } else {
-        console.error('❌ Error response:', result);
-        throw new Error(result.error);
+        console.error('❌ [Curriculum] Error response:', result);
+        throw new Error(result.error || 'Failed to initialize courses');
       }
     } catch (error: any) {
-      console.error('Error initializing courses:', error);
-      toast.error(
-        language === 'ar' ? 'فشل في تحميل المقررات' : 'Failed to initialize courses'
+      console.error('❌ [Curriculum] Error initializing courses:', error);
+      const errorMessage = getErrorMessage(
+        error,
+        { ar: 'فشل في تحميل المقررات', en: 'Failed to initialize courses' },
+        language
       );
+      toast.error(errorMessage);
     } finally {
       setInitializingCourses(false);
     }
@@ -306,8 +343,8 @@ export const CurriculumPage: React.FC = () => {
                   <Badge variant="secondary">{summary.courses}</Badge>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  {summary.credit_hours}{' '}
-                  {language === 'ar' ? 'ساعة' : summary.credit_hours === 1 ? 'hour' : 'hours'}
+                  {summary.credits}{' '}
+                  {language === 'ar' ? 'ساعة' : summary.credits === 1 ? 'hour' : 'hours'}
                 </p>
               </div>
             ))}
@@ -347,7 +384,7 @@ export const CurriculumPage: React.FC = () => {
                                 : levelSummary?.courses === 1
                                 ? 'course'
                                 : 'courses'}{' '}
-                              • {levelSummary?.credit_hours}{' '}
+                              • {levelSummary?.credits}{' '}
                               {language === 'ar' ? 'ساعة' : 'hours'}
                             </p>
                           </div>

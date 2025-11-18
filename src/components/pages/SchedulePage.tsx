@@ -26,6 +26,7 @@ import {
   timeSlots,
   type ScheduleSlot
 } from '../../utils/scheduleUtils';
+import { fetchJSON, getErrorMessage } from '../../utils/fetchWithTimeout';
 
 export const SchedulePage: React.FC = () => {
   const { language, userInfo } = useApp();
@@ -36,7 +37,22 @@ export const SchedulePage: React.FC = () => {
   const [totalInstructors, setTotalInstructors] = useState(0);
 
   useEffect(() => {
+    // Set timeout for loading state
+    const loadingTimeout = setTimeout(() => {
+      if (loading) {
+        console.warn('⚠️ [Schedule] Loading timeout - forcing stop');
+        setLoading(false);
+        toast.error(
+          language === 'ar'
+            ? 'انتهى وقت التحميل - يرجى المحاولة مرة أخرى'
+            : 'Loading timeout - Please try again'
+        );
+      }
+    }, 15000); // 15 seconds timeout
+
     fetchSchedule();
+
+    return () => clearTimeout(loadingTimeout);
   }, [userInfo]);
 
   const fetchSchedule = async () => {
@@ -45,32 +61,44 @@ export const SchedulePage: React.FC = () => {
       console.log('📅 Fetching schedule for user:', userInfo);
 
       if (!userInfo?.id) {
-        console.warn('⚠️ No user ID found');
+        console.error('🚫 Access denied: User not logged in');
+        toast.error(
+          language === 'ar'
+            ? 'يرجى تسجيل الدخول أولاً'
+            : 'Please login first'
+        );
         setScheduleData([]);
+        setLoading(false);
         return;
       }
 
       const accessToken = localStorage.getItem('access_token');
       if (!accessToken) {
         console.warn('⚠️ No access token found');
+        toast.error(
+          language === 'ar'
+            ? 'يرجى تسجيل الدخول مرة أخرى'
+            : 'Please login again'
+        );
         setScheduleData([]);
+        setLoading(false);
         return;
       }
 
-      // جلب المقررات المسجلة للطالب
-      const response = await fetch(
+      // جلب المقررات المسجلة للطالب باستخدام fetchJSON مع timeout
+      const result = await fetchJSON(
         `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/student/registrations`,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
           },
+          timeout: 10000, // 10 seconds timeout
         }
       );
 
-      const result = await response.json();
       console.log('📚 Registrations response:', result);
 
-      if (response.ok && result.registrations) {
+      if (result.registrations) {
         const approvedRegistrations = result.registrations.filter(
           (reg: any) => reg.status === 'approved'
         );

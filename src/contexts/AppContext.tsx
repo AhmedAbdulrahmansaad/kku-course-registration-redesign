@@ -271,29 +271,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // التحقق من تسجيل الدخول أولاً
     if (savedUser) {
-      const user = JSON.parse(savedUser);
-      setUserInfo(user);
-      setIsLoggedIn(true);
-      
-      const userRole = user.role || 'student';
-      
-      // ✅ المشرف والمدير لا يحتاجون للتعهد - يذهبون مباشرة للوحة التحكم
-      if (userRole === 'admin') {
-        setHasAcceptedAgreementState(true); // تخطي التعهد
-        setCurrentPageState('adminDashboard');
-        return;
-      } else if (userRole === 'supervisor') {
-        setHasAcceptedAgreementState(true); // تخطي التعهد
-        setCurrentPageState('supervisorDashboard');
-        return;
-      }
-      
-      // ✅ الطالب يحتاج للتعهد
-      if (agreementAccepted === 'true') {
-        setHasAcceptedAgreementState(true);
-        setCurrentPageState('studentDashboard');
-      } else {
-        // لم يقبل التعهد - الذهاب لصفحة التعهد
+      try {
+        const user = JSON.parse(savedUser);
+        setUserInfo(user);
+        setIsLoggedIn(true);
+        
+        const userRole = user.role || 'student';
+        
+        // ✅ المشرف والمدير لا يحتاجون للتعهد - يذهبون مباشرة للوحة التحكم
+        if (userRole === 'admin') {
+          setHasAcceptedAgreementState(true); // تخطي التعهد
+          setCurrentPageState('adminDashboard');
+          return;
+        } else if (userRole === 'supervisor') {
+          setHasAcceptedAgreementState(true); // تخطي التعهد
+          setCurrentPageState('supervisorDashboard');
+          return;
+        }
+        
+        // ✅ الطالب يحتاج للتعهد
+        if (agreementAccepted === 'true') {
+          setHasAcceptedAgreementState(true);
+          setCurrentPageState('studentDashboard');
+        } else {
+          // لم يقبل التعهد - الذهاب لصفحة التعهد
+          setCurrentPageState('accessAgreement');
+        }
+      } catch (error) {
+        console.error('⚠️ Error parsing user info from localStorage:', error);
+        // Clear corrupted data
+        localStorage.removeItem('userInfo');
+        localStorage.removeItem('access_token');
+        setUserInfo(null);
+        setIsLoggedIn(false);
         setCurrentPageState('accessAgreement');
       }
     } else {
@@ -308,7 +318,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     if (savedCourses) {
-      setRegisteredCourses(JSON.parse(savedCourses));
+      try {
+        setRegisteredCourses(JSON.parse(savedCourses));
+      } catch (error) {
+        console.error('⚠️ Error parsing courses from localStorage:', error);
+        localStorage.removeItem('registeredCourses');
+      }
     }
   }, []);
 
@@ -328,7 +343,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // التحقق من التعهد للصفحات المحمية
     if (protectedPages.includes(page)) {
       if (agreementAccepted !== 'true') {
-        console.log('❌ Access Agreement not accepted - Redirecting to agreement page');
+        console.log('��� Access Agreement not accepted - Redirecting to agreement page');
         setCurrentPageState('accessAgreement');
         return;
       }
