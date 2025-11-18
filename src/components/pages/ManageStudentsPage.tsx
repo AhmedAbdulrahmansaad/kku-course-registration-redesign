@@ -106,6 +106,18 @@ export const ManageStudentsPage: React.FC = () => {
         }));
         
         console.log('✅ [ManageStudents] Processed students:', processedStudents);
+        
+        // ✅ طباعة أول 3 طلاب للتحقق من البيانات
+        processedStudents.slice(0, 3).forEach((student: any, index: number) => {
+          console.log(`👤 [ManageStudents] Student ${index + 1}:`, {
+            name: student.name,
+            student_id: student.student_id,
+            major: student.major,
+            level: student.level,
+            gpa: student.gpa
+          });
+        });
+        
         setStudents(processedStudents);
       } else {
         throw new Error(result.error || 'Failed to load students');

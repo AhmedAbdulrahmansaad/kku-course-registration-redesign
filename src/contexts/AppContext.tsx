@@ -273,6 +273,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (savedUser) {
       try {
         const user = JSON.parse(savedUser);
+        console.log('🔄 [AppContext] Loading saved user from localStorage:', user);
+        console.log('📊 [AppContext] User Level:', user.level);
+        console.log('📊 [AppContext] User Major:', user.major);
+        console.log('📊 [AppContext] User Role:', user.role);
+        
         setUserInfo(user);
         setIsLoggedIn(true);
         
@@ -282,10 +287,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (userRole === 'admin') {
           setHasAcceptedAgreementState(true); // تخطي التعهد
           setCurrentPageState('adminDashboard');
+          console.log('✅ [AppContext] Admin user - redirecting to adminDashboard');
           return;
         } else if (userRole === 'supervisor') {
           setHasAcceptedAgreementState(true); // تخطي التعهد
           setCurrentPageState('supervisorDashboard');
+          console.log('✅ [AppContext] Supervisor user - redirecting to supervisorDashboard');
           return;
         }
         
@@ -293,21 +300,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (agreementAccepted === 'true') {
           setHasAcceptedAgreementState(true);
           setCurrentPageState('studentDashboard');
+          console.log('✅ [AppContext] Student user with agreement - redirecting to studentDashboard');
         } else {
           // لم يقبل التعهد - الذهاب لصفحة التعهد
           setCurrentPageState('accessAgreement');
+          console.log('⚠️ [AppContext] Student user without agreement - redirecting to accessAgreement');
         }
       } catch (error) {
         console.error('⚠️ Error parsing user info from localStorage:', error);
         // Clear corrupted data
         localStorage.removeItem('userInfo');
         localStorage.removeItem('access_token');
+        localStorage.removeItem('isLoggedIn');
         setUserInfo(null);
         setIsLoggedIn(false);
         setCurrentPageState('accessAgreement');
       }
     } else {
       // ✅ لم يسجل دخول
+      console.log('⚠️ [AppContext] No saved user found in localStorage');
       if (agreementAccepted === 'true') {
         setHasAcceptedAgreementState(true);
         // دع المستخدم في الصفحة التي هو فيها (login أو home)
@@ -343,7 +354,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // التحقق من التعهد للصفحات المحمية
     if (protectedPages.includes(page)) {
       if (agreementAccepted !== 'true') {
-        console.log('��� Access Agreement not accepted - Redirecting to agreement page');
+        console.log(' Access Agreement not accepted - Redirecting to agreement page');
         setCurrentPageState('accessAgreement');
         return;
       }

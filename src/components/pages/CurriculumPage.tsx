@@ -58,22 +58,7 @@ export const CurriculumPage: React.FC = () => {
   const [initializingCourses, setInitializingCourses] = useState(false);
 
   useEffect(() => {
-    // Set timeout for loading state
-    const loadingTimeout = setTimeout(() => {
-      if (loading) {
-        console.warn('⚠️ [Curriculum] Loading timeout - forcing stop');
-        setLoading(false);
-        toast.error(
-          language === 'ar'
-            ? 'انتهى وقت التحميل - يرجى المحاولة مرة أخرى'
-            : 'Loading timeout - Please try again'
-        );
-      }
-    }, 15000); // 15 seconds timeout
-
     fetchCurriculum();
-
-    return () => clearTimeout(loadingTimeout);
   }, []);
 
   const fetchCurriculum = async () => {

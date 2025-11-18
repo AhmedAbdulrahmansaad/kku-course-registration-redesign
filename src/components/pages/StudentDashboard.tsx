@@ -36,17 +36,111 @@ import {
 import { KKULogoSVG } from '../KKULogoSVG';
 
 export const StudentDashboard: React.FC = () => {
-  const { language, userInfo } = useApp();
+  const { language, userInfo, setUserInfo } = useApp();
   const [registrations, setRegistrations] = useState<CourseRegistration[]>([]);
   const [stats, setStats] = useState<AcademicStats | null>(null);
   const [alerts, setAlerts] = useState<AcademicAlert[]>([]);
   const [loading, setLoading] = useState(true);
   const [dbStats, setDbStats] = useState<any>(null); // إحصائيات من قاعدة البيانات
+  const [refreshedUserData, setRefreshedUserData] = useState<any>(null); // ✅ بيانات محدّثة من SQL
 
   useEffect(() => {
+    refreshUserData(); // ✅ جلب بيانات المستخدم المحدثة أولاً
     fetchRegistrations();
     fetchStatistics(); // جلب الإحصائيات من الـ server
   }, []);
+
+  // ✅ جلب بيانات المستخدم المحدثة من SQL
+  const refreshUserData = async () => {
+    try {
+      console.log('🔄 [Dashboard] Refreshing user data from SQL...');
+      
+      const accessToken = localStorage.getItem('access_token');
+      if (!accessToken) {
+        console.warn('⚠️ [Dashboard] No access token for refresh');
+        return;
+      }
+
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/auth/me`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      // ✅ معالجة خطأ Token منتهي الصلاحية
+      if (response.status === 401) {
+        const errorData = await response.json();
+        console.error('❌ [Dashboard] Token error:', errorData);
+        
+        if (errorData.code === 'USER_NOT_FOUND' || errorData.code === 'INVALID_TOKEN') {
+          console.warn('⚠️ [Dashboard] Token expired or invalid - clearing session...');
+          
+          // مسح البيانات المحلية
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('userInfo');
+          localStorage.removeItem('isLoggedIn');
+          
+          toast.error(
+            language === 'ar'
+              ? 'انتهت صلاحية الجلسة. يرجى تسجيل الدخول مرة أخرى'
+              : 'Session expired. Please login again',
+            { duration: 5000 }
+          );
+          
+          // إعادة التوجيه لصفحة تسجيل الدخول بعد 2 ثانية
+          setTimeout(() => {
+            window.location.href = '/';
+          }, 2000);
+          
+          return;
+        }
+      }
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ [Dashboard] Refreshed user data:', result.user);
+        console.log('📊 [Dashboard] Student details:', {
+          level: result.user.students?.[0]?.level,
+          major: result.user.students?.[0]?.major,
+          gpa: result.user.students?.[0]?.gpa
+        });
+
+        // ✅ تحديث userInfo في Context و localStorage
+        const studentData = result.user.students?.[0];
+        
+        // ⚠️ عدم استخدام قيم افتراضية ثابتة - استخدام null بدلاً من ذلك
+        const updatedUserInfo = {
+          name: result.user.name,
+          id: result.user.student_id,
+          user_db_id: result.user.id,
+          email: result.user.email,
+          // ✅ استخدام البيانات من SQL مباشرة بدون fallback ثابت
+          major: studentData?.major || null,
+          level: studentData?.level !== undefined ? studentData.level : null,
+          gpa: studentData?.gpa !== undefined ? studentData.gpa : 0,
+          total_credits: studentData?.total_credits || 0,
+          completed_credits: studentData?.completed_credits || 0,
+          role: result.user.role || 'student',
+          access_token: accessToken,
+        };
+
+        console.log('💾 [Dashboard] Updating userInfo with fresh data:', updatedUserInfo);
+        console.log('📊 [Dashboard] Level in updatedUserInfo:', updatedUserInfo.level);
+        console.log('📊 [Dashboard] Major in updatedUserInfo:', updatedUserInfo.major);
+        
+        setUserInfo(updatedUserInfo);
+        localStorage.setItem('userInfo', JSON.stringify(updatedUserInfo));
+        setRefreshedUserData(result.user);
+      } else {
+        console.error('❌ [Dashboard] Failed to refresh user data:', response.status);
+      }
+    } catch (error: any) {
+      console.error('❌ [Dashboard] Error refreshing user data:', error);
+    }
+  };
 
   const fetchStatistics = async () => {
     try {
@@ -122,7 +216,7 @@ export const StudentDashboard: React.FC = () => {
             : 'Session expired, please login again'
         );
         
-        // إعادة التوجيه لصفحة تسجيل الدخل
+        // إعادة التوجيه لصفحة تسجيل الدخول
         setTimeout(() => {
           window.location.reload();
         }, 2000);
@@ -188,17 +282,57 @@ export const StudentDashboard: React.FC = () => {
   }
 
   const studentName = userInfo?.name || (language === 'ar' ? 'الطالب' : 'Student');
-  const studentLevel = userInfo?.level || 1;
-  const studentGPA = userInfo?.gpa || 0;
+  // ✅ استخدام البيانات من SQL أولاً، ثم userInfo كـ fallback
+  const studentLevel = refreshedUserData?.students?.[0]?.level ?? userInfo?.level ?? 1;
+  const studentGPA = refreshedUserData?.students?.[0]?.gpa ?? userInfo?.gpa ?? 0;
+  const studentMajor = refreshedUserData?.students?.[0]?.major ?? userInfo?.major ?? 'Management Information Systems';
 
   // ✅ طباعة معلومات الطالب للتأكد
   console.log('👤 [StudentDashboard] UserInfo:', userInfo);
-  console.log('📊 [StudentDashboard] Student Level:', studentLevel);
-  console.log('📊 [StudentDashboard] Student GPA:', studentGPA);
-  console.log('📚 [StudentDashboard] Student Major:', userInfo?.major);
+  console.log('📊 [StudentDashboard] RefreshedUserData:', refreshedUserData);
+  console.log('📊 [StudentDashboard] Student Level (from SQL):', refreshedUserData?.students?.[0]?.level);
+  console.log('📊 [StudentDashboard] Student Level (final):', studentLevel);
+  console.log('📊 [StudentDashboard] Student GPA (from SQL):', refreshedUserData?.students?.[0]?.gpa);
+  console.log('📊 [StudentDashboard] Student GPA (final):', studentGPA);
+  console.log('📚 [StudentDashboard] Student Major (from SQL):', refreshedUserData?.students?.[0]?.major);
+  console.log('📚 [StudentDashboard] Student Major (final):', studentMajor);
 
   return (
     <div className="space-y-6">
+      {/* ✅ Debug Panel - يُظهر البيانات الحقيقية من SQL */}
+      {refreshedUserData && (
+        <Card className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border-2 border-blue-300 dark:border-blue-700">
+          <div className="flex items-start gap-3">
+            <div className="bg-blue-600 text-white p-2 rounded-lg">
+              <Info className="h-5 w-5" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-bold text-blue-900 dark:text-blue-100 mb-2">
+                {language === 'ar' ? '✅ البيانات محملة من قاعدة البيانات' : '✅ Data Loaded from Database'}
+              </h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                <div className="bg-white dark:bg-gray-900 p-2 rounded">
+                  <p className="text-xs text-muted-foreground">{language === 'ar' ? 'الاسم' : 'Name'}</p>
+                  <p className="font-bold">{refreshedUserData.name}</p>
+                </div>
+                <div className="bg-white dark:bg-gray-900 p-2 rounded">
+                  <p className="text-xs text-muted-foreground">{language === 'ar' ? 'المستوى' : 'Level'}</p>
+                  <p className="font-bold text-blue-600">{refreshedUserData.students?.[0]?.level || 'N/A'}</p>
+                </div>
+                <div className="bg-white dark:bg-gray-900 p-2 rounded">
+                  <p className="text-xs text-muted-foreground">{language === 'ar' ? 'التخصص' : 'Major'}</p>
+                  <p className="font-bold text-green-600">{refreshedUserData.students?.[0]?.major || 'N/A'}</p>
+                </div>
+                <div className="bg-white dark:bg-gray-900 p-2 rounded">
+                  <p className="text-xs text-muted-foreground">{language === 'ar' ? 'المعدل' : 'GPA'}</p>
+                  <p className="font-bold text-purple-600">{refreshedUserData.students?.[0]?.gpa?.toFixed(2) || '0.00'}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+
       {/* Hero Section */}
       <div className="relative -mx-4 -mt-8 px-4">
         <div className="absolute inset-0 h-80 bg-gradient-to-br from-[#184A2C] via-emerald-700 to-emerald-900 dark:from-[#0e2818] dark:via-emerald-900 dark:to-black"></div>
@@ -219,10 +353,26 @@ export const StudentDashboard: React.FC = () => {
                 </p>
               </div>
             </div>
-            <div className="text-center md:text-right">
+            <div className="text-center md:text-right flex flex-col gap-2">
               <Badge className="bg-kku-gold text-kku-green text-base md:text-lg px-4 py-2">
                 {language === 'ar' ? `المستوى ${studentLevel}` : `Level ${studentLevel}`}
               </Badge>
+              {studentMajor && (
+                <Badge className="bg-white/20 border-2 border-white/40 text-white text-sm md:text-base px-3 py-1.5">
+                  {language === 'ar' ? '🎓 ' : '🎓 '}
+                  {studentMajor === 'Management Information Systems' 
+                    ? (language === 'ar' ? 'نظم المعلومات الإدارية' : 'MIS')
+                    : studentMajor === 'Business Administration'
+                    ? (language === 'ar' ? 'إدارة الأعمال' : 'Business Admin')
+                    : studentMajor === 'Accounting'
+                    ? (language === 'ar' ? 'المحاسبة' : 'Accounting')
+                    : studentMajor === 'Marketing'
+                    ? (language === 'ar' ? 'التسويق' : 'Marketing')
+                    : studentMajor === 'Finance'
+                    ? (language === 'ar' ? 'المالية' : 'Finance')
+                    : studentMajor}
+                </Badge>
+              )}
             </div>
           </div>
 

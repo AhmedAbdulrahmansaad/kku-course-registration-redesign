@@ -37,22 +37,7 @@ export const SchedulePage: React.FC = () => {
   const [totalInstructors, setTotalInstructors] = useState(0);
 
   useEffect(() => {
-    // Set timeout for loading state
-    const loadingTimeout = setTimeout(() => {
-      if (loading) {
-        console.warn('⚠️ [Schedule] Loading timeout - forcing stop');
-        setLoading(false);
-        toast.error(
-          language === 'ar'
-            ? 'انتهى وقت التحميل - يرجى المحاولة مرة أخرى'
-            : 'Loading timeout - Please try again'
-        );
-      }
-    }, 15000); // 15 seconds timeout
-
     fetchSchedule();
-
-    return () => clearTimeout(loadingTimeout);
   }, [userInfo]);
 
   const fetchSchedule = async () => {

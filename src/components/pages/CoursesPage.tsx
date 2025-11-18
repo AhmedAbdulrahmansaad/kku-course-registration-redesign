@@ -65,22 +65,7 @@ export const CoursesPage: React.FC = () => {
   const [registering, setRegistering] = useState<string | null>(null);
 
   useEffect(() => {
-    // Set timeout for loading state
-    const loadingTimeout = setTimeout(() => {
-      if (loading) {
-        console.warn('⚠️ [Courses] Loading timeout - forcing stop');
-        setLoading(false);
-        toast.error(
-          language === 'ar'
-            ? 'انتهى وقت التحميل - يرجى المحاولة مرة أخرى'
-            : 'Loading timeout - Please try again'
-        );
-      }
-    }, 15000); // 15 seconds timeout
-
     fetchCourses();
-
-    return () => clearTimeout(loadingTimeout);
   }, [userInfo]);
 
   const fetchCourses = async () => {
@@ -307,8 +292,8 @@ export const CoursesPage: React.FC = () => {
               </h1>
               <p className="text-white/90 text-base md:text-lg">
                 {language === 'ar'
-                  ? `المستوى ${userInfo?.level || 1} - ${courses.length} مقرر`
-                  : `Level ${userInfo?.level || 1} - ${courses.length} courses`}
+                  ? `المستوى ${userInfo?.level ?? 1} - ${courses.length} مقرر`
+                  : `Level ${userInfo?.level ?? 1} - ${courses.length} courses`}
               </p>
             </div>
           </div>

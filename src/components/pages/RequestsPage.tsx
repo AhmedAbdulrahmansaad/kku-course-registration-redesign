@@ -85,22 +85,7 @@ export const RequestsPage: React.FC = () => {
   const [processing, setProcessing] = useState(false);
 
   useEffect(() => {
-    // Set timeout for loading state
-    const loadingTimeout = setTimeout(() => {
-      if (loading) {
-        console.warn('⚠️ [Requests] Loading timeout - forcing stop');
-        setLoading(false);
-        toast.error(
-          language === 'ar'
-            ? 'انتهى وقت التحميل - يرجى المحاولة مرة أخرى'
-            : 'Loading timeout - Please try again'
-        );
-      }
-    }, 15000); // 15 seconds timeout
-
     fetchRequests();
-
-    return () => clearTimeout(loadingTimeout);
   }, []);
 
   const fetchRequests = async () => {

@@ -149,12 +149,12 @@ export const SignUpPage: React.FC = () => {
       }
 
       // التحقق من التخصص
-      if (!formData.major) {
+      if (!formData.major || formData.major === '') {
         newErrors.major = language === 'ar' ? 'التخصص مطلوب' : 'Major is required';
       }
 
       // التحقق من المستوى
-      if (!formData.level) {
+      if (!formData.level || formData.level === '') {
         newErrors.level = language === 'ar' ? 'المستوى الدراسي مطلوب' : 'Academic level is required';
       }
 
@@ -184,15 +184,42 @@ export const SignUpPage: React.FC = () => {
     setLoading(true);
 
     try {
-      // إنشاء الحساب عبر Backend (SQL Database)
-      console.log('📝 [Signup] Creating account with data:', {
+      // ✅ طباعة البيانات قبل الإرسال للتحقق
+      const dataToSend = {
         studentId: formData.studentId,
         email: formData.email,
+        password: formData.password,
+        name: formData.fullName,
+        phone: formData.phone || '',
         role: formData.role,
-        level: formData.level ? parseInt(formData.level) : 1,
-        major: formData.major || 'MIS',
+        level: formData.level ? parseInt(formData.level) : null, // ✅ إزالة القيمة الافتراضية
+        major: formData.major || null, // ✅ إزالة القيمة الافتراضية
         gpa: formData.gpa ? parseFloat(formData.gpa) : 0.0,
+      };
+      
+      console.log('📝 [Signup] Data being sent to backend:', dataToSend);
+      console.log('📊 [Signup] Specific values:', {
+        level: dataToSend.level,
+        levelType: typeof dataToSend.level,
+        major: dataToSend.major,
+        gpa: dataToSend.gpa,
+        gpaType: typeof dataToSend.gpa
       });
+      
+      // ✅ تحقق نهائي: إذا كان طالب، يجب أن يكون لديه major و level
+      if (formData.role === 'student' && (!dataToSend.major || !dataToSend.level)) {
+        console.error('❌ [Signup] Validation failed: Student missing major or level!', {
+          major: dataToSend.major,
+          level: dataToSend.level
+        });
+        toast.error(
+          language === 'ar'
+            ? '⚠️ خطأ: التخصص والمستوى مطلوبان للطلاب'
+            : '⚠️ Error: Major and level are required for students'
+        );
+        setLoading(false);
+        return;
+      }
 
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/auth/signup`,
@@ -209,8 +236,8 @@ export const SignUpPage: React.FC = () => {
             name: formData.fullName,
             phone: formData.phone || '',
             role: formData.role, // ✅ إضافة الدور
-            level: formData.level ? parseInt(formData.level) : 1, // ✅ إضافة المستوى
-            major: formData.major || 'MIS', // ✅ إضافة التخصص
+            level: formData.level ? parseInt(formData.level) : null, // ✅ null بدلاً من 1
+            major: formData.major || null, // ✅ null بدلاً من MIS
             gpa: formData.gpa ? parseFloat(formData.gpa) : 0.0, // ✅ إضافة المعدل
           }),
         }
@@ -637,7 +664,7 @@ export const SignUpPage: React.FC = () => {
                           <div className="text-left">
                             <p className="font-bold">{language === 'ar' ? '👨‍🎓 طالب' : '👨‍🎓 Student'}</p>
                             <p className="text-xs text-muted-foreground">
-                              {language === 'ar' ? 'تسجيل المقررات والجداول' : 'Course registration & schedules'}
+                              {language === 'ar' ? 'تجيل المقررات والجداول' : 'Course registration & schedules'}
                             </p>
                           </div>
                         </div>

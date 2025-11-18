@@ -76,6 +76,22 @@ export const SupervisorDashboard: React.FC = () => {
 
       if (response.ok && result.success) {
         console.log('✅ [SupervisorDashboard] Loaded', result.registrations.length, 'registrations from SQL');
+        
+        // ✅ طباعة بيانات الطلاب للتحقق
+        result.registrations.forEach((reg: any, index: number) => {
+          if (index < 3) { // طباعة أول 3 فقط لتجنب الفوضى
+            console.log(`📋 [SupervisorDashboard] Registration ${index + 1}:`, {
+              registration_id: reg.registration_id,
+              student_name: reg.student?.full_name,
+              student_major: reg.student?.major,
+              student_level: reg.student?.level,
+              student_gpa: reg.student?.gpa,
+              course_id: reg.course_id,
+              status: reg.status
+            });
+          }
+        });
+        
         setRegistrations(result.registrations || []);
       } else {
         throw new Error(result.error || 'Failed to load registrations');

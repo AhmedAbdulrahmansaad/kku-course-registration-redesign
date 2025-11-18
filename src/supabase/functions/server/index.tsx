@@ -67,22 +67,43 @@ app.post('/make-server-1573e40a/auth/login', async (c) => {
     console.log('🔐 Login attempt:', identifier);
 
     let email = identifier;
+    let userFromDb = null;
     
     // إذا كان الـ identifier رقم جامعي/وظيفي
     if (!identifier.includes('@')) {
+      console.log('🔍 Searching for user by student_id:', identifier);
+      
       const { data: user, error } = await supabase
         .from('users')
-        .select('email')
+        .select('email, active, role, name, student_id')
         .eq('student_id', identifier)
-        .eq('active', true)
         .single();
       
+      console.log('🔍 User search result:', { 
+        found: !!user, 
+        active: user?.active, 
+        role: user?.role,
+        email: user?.email 
+      });
+      
       if (error || !user) {
-        console.log('❌ User not found:', identifier);
-        return c.json({ error: 'بيانات الدخول غير صحيحة' }, 401);
+        console.log('❌ User not found in database:', identifier, error?.message);
+        return c.json({ 
+          error: 'الرقم الجامعي/الوظيفي غير موجود في النظام',
+          hint: 'تأكد من إدخال الرقم الصحيح أو قم بالتسجيل أولاً'
+        }, 401);
+      }
+      
+      if (!user.active) {
+        console.log('❌ User account is inactive:', identifier);
+        return c.json({ 
+          error: 'حسابك معطّل. يرجى التواصل مع الإدارة'
+        }, 401);
       }
       
       email = user.email;
+      userFromDb = user;
+      console.log('✅ Found user email:', email, '- Role:', user.role);
     }
 
     // تسجيل الدخول
@@ -93,8 +114,34 @@ app.post('/make-server-1573e40a/auth/login', async (c) => {
     });
 
     if (error) {
-      console.error('❌ Login error:', error.message);
-      console.error('❌ Login error details:', JSON.stringify(error));
+      console.error('❌ Supabase Auth error:', error.message);
+      console.error('❌ Auth error code:', error.status);
+      console.error('❌ Full error:', JSON.stringify(error));
+      console.error('❌ Attempted email:', email);
+      console.error('❌ Password length:', password?.length);
+      
+      // معالجة خاصة لأخطاء شائعة
+      if (error.message.includes('Invalid login credentials') || error.message.includes('invalid_credentials')) {
+        return c.json({ 
+          error: 'البريد الإلكتروني أو كلمة المرور غير صحيحة',
+          hint: userFromDb 
+            ? 'الحساب موجود في قاعدة البيانات، لكن كلمة المرور غير صحيحة. تأكد من كلمة المرور التي استخدمتها عند التسجيل.'
+            : 'تأكد من أنك سجلت حساباً مسبقاً، وأن البريد الإلكتروني وكلمة المرور صحيحان.',
+          debug: {
+            emailUsed: email,
+            accountFoundInDB: !!userFromDb,
+            accountRole: userFromDb?.role
+          }
+        }, 401);
+      }
+      
+      if (error.message.includes('Email not confirmed')) {
+        return c.json({ 
+          error: 'البريد الإلكتروني غير مؤكد',
+          hint: 'يرجى تأكيد بريدك الإلكتروني أولاً'
+        }, 401);
+      }
+      
       return c.json({ 
         error: 'بيانات الدخول غير صحيحة',
         details: error.message 
@@ -117,7 +164,10 @@ app.post('/make-server-1573e40a/auth/login', async (c) => {
 
     if (userError || !userData) {
       console.error('❌ User data error:', userError);
-      return c.json({ error: 'خطأ في جلب بيانات المستخدم' }, 404);
+      return c.json({ 
+        error: 'خطأ في جلب بيانات المستخدم',
+        hint: 'حسابك موجود في Auth لكن غير موجود في قاعدة البيانات. يرجى التواصل مع الدعم الفني'
+      }, 404);
     }
 
     console.log('✅ Login successful:', userData.student_id, '-', userData.role);
@@ -128,6 +178,24 @@ app.post('/make-server-1573e40a/auth/login', async (c) => {
       user_id: userData.id
     });
 
+    // ✅ تشخيص إضافي للتأكد من وجود بيانات الطالب
+    if (userData.role === 'student') {
+      if (!userData.students || userData.students.length === 0) {
+        console.error('⚠️ [Login] CRITICAL: Student has no record in students table!');
+        console.error('⚠️ [Login] User ID:', userData.id);
+        console.error('⚠️ [Login] Student ID:', userData.student_id);
+        
+        // محاولة جلب بيانات الطالب يدوياً للتشخيص
+        const { data: manualStudentData, error: manualError } = await supabase
+          .from('students')
+          .select('*')
+          .eq('user_id', userData.id);
+        
+        console.error('⚠️ [Login] Manual student data query result:', manualStudentData);
+        console.error('⚠️ [Login] Manual query error:', manualError);
+      }
+    }
+
     return c.json({
       success: true,
       user: userData,
@@ -137,7 +205,10 @@ app.post('/make-server-1573e40a/auth/login', async (c) => {
 
   } catch (error: any) {
     console.error('❌ Login error:', error);
-    return c.json({ error: 'فشل تسجيل الدخول' }, 500);
+    return c.json({ 
+      error: 'فشل تسجيل الدخول',
+      hint: 'حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى'
+    }, 500);
   }
 });
 
@@ -157,12 +228,133 @@ app.post('/make-server-1573e40a/auth/logout', async (c) => {
   }
 });
 
+// جلب بيانات المستخدم الحالي (لتحديث البيانات)
+app.get('/make-server-1573e40a/auth/me', async (c) => {
+  try {
+    const authHeader = c.req.header('Authorization');
+    if (!authHeader) {
+      console.warn('⚠️ [Me] No authorization header');
+      return c.json({ error: 'Unauthorized', code: 'NO_AUTH_HEADER' }, 401);
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    console.log('🔍 [Me] Fetching current user data...');
+
+    // الحصول على المستخدم من Auth token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError) {
+      console.error('❌ [Me] Auth error:', authError.message, authError.code);
+      
+      // ✅ معالجة خاصة للـ token منتهي الصلاحية أو المستخدم المحذوف
+      if (authError.code === 'user_not_found' || authError.status === 403) {
+        return c.json({ 
+          error: 'Token expired or user not found', 
+          code: 'USER_NOT_FOUND',
+          details: 'Please login again'
+        }, 401);
+      }
+      
+      return c.json({ 
+        error: 'Invalid token', 
+        code: 'INVALID_TOKEN',
+        details: authError.message 
+      }, 401);
+    }
+    
+    if (!user) {
+      console.error('❌ [Me] No user returned from getUser');
+      return c.json({ 
+        error: 'User not found', 
+        code: 'USER_NOT_FOUND' 
+      }, 401);
+    }
+
+    console.log('✅ [Me] Auth user ID:', user.id);
+
+    // جلب بيانات المستخدم الكاملة من قاعدة البيانات
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select(`
+        *,
+        students(*),
+        supervisors(*),
+        admins(*)
+      `)
+      .eq('auth_id', user.id)
+      .single();
+
+    if (userError || !userData) {
+      console.error('❌ [Me] User data error:', userError);
+      return c.json({ 
+        error: 'User not found in database', 
+        code: 'USER_NOT_IN_DB',
+        details: 'Your account exists in Auth but not in database. Please contact support.'
+      }, 404);
+    }
+
+    console.log('✅ [Me] User data loaded:', {
+      student_id: userData.student_id,
+      role: userData.role,
+      level: userData.students?.[0]?.level,
+      major: userData.students?.[0]?.major,
+      gpa: userData.students?.[0]?.gpa
+    });
+
+    // ✅ تشخيص إضافي للتأكد من وجود بيانات الطالب
+    if (userData.role === 'student') {
+      if (!userData.students || userData.students.length === 0) {
+        console.error('⚠️ [Me] CRITICAL: Student has no record in students table!');
+        console.error('⚠️ [Me] User ID:', userData.id);
+        console.error('⚠️ [Me] Student ID:', userData.student_id);
+        console.error('⚠️ [Me] Role:', userData.role);
+        
+        // محاولة جلب بيانات الطالب يدوياً للتشخيص
+        const { data: manualStudentData, error: manualError } = await supabase
+          .from('students')
+          .select('*')
+          .eq('user_id', userData.id);
+        
+        console.error('⚠️ [Me] Manual student data query result:', manualStudentData);
+        console.error('⚠️ [Me] Manual query error:', manualError);
+      } else {
+        console.log('✅ [Me] Student data exists:', {
+          level: userData.students?.[0]?.level,
+          major: userData.students?.[0]?.major,
+          gpa: userData.students?.[0]?.gpa,
+          total_credits: userData.students?.[0]?.total_credits
+        });
+      }
+    }
+
+    return c.json({
+      success: true,
+      user: userData
+    });
+
+  } catch (error: any) {
+    console.error('❌ [Me] Unexpected error:', error);
+    return c.json({ 
+      error: 'Failed to fetch user data', 
+      code: 'UNEXPECTED_ERROR',
+      details: error.message 
+    }, 500);
+  }
+});
+
 // إنشاء حساب جديد (تسجيل)
 app.post('/make-server-1573e40a/auth/signup', async (c) => {
   try {
     const { studentId, email, password, name, phone, role, level, major, gpa } = await c.req.json();
 
-    console.log('📝 Signup attempt:', { studentId, email, role, level, major });
+    console.log('📝 [Signup] Received data:', { 
+      studentId, 
+      email, 
+      role, 
+      level: level ? parseInt(level) : null, // ✅ null بدلاً من 1
+      major: major || null, // ✅ null بدلاً من undefined
+      gpa: gpa ? parseFloat(gpa) : 0.0
+    });
 
     // ✅ معالجة خاصة للمشرفين والمدراء (لا يحتاجون studentId)
     let finalStudentId = studentId;
@@ -187,6 +379,7 @@ app.post('/make-server-1573e40a/auth/signup', async (c) => {
     }
 
     // إنشاء حساب في Supabase Auth
+    console.log('🔐 [Signup] Creating auth account with:', { email, passwordLength: password?.length });
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
       email,
       password,
@@ -199,16 +392,42 @@ app.post('/make-server-1573e40a/auth/signup', async (c) => {
     });
 
     if (authError) {
-      console.error('❌ Auth creation error:', authError);
-      return c.json({ error: authError.message }, 400);
+      console.error('❌ [Signup] Auth creation error:', authError);
+      console.error('❌ [Signup] Failed email:', email);
+      return c.json({ 
+        error: `فشل إنشاء حساب المصادقة: ${authError.message}`,
+        details: authError.message 
+      }, 400);
     }
+    
+    console.log('✅ [Signup] Auth account created successfully:', authData.user.id);
+
+    // ✅ تحديد department_id بناءً على major
+    let departmentCode = 'MIS'; // القيمة الافتراضية
+    
+    if (major) {
+      // Mapping من major إلى department code
+      const majorToDeptMap: { [key: string]: string } = {
+        'Management Information Systems': 'MIS',
+        'Business Administration': 'BA',
+        'Accounting': 'ACC',
+        'Marketing': 'MKT',
+        'Finance': 'FIN',
+      };
+      
+      departmentCode = majorToDeptMap[major] || 'MIS';
+    }
+    
+    console.log(`📚 [Signup] Using department code: ${departmentCode} for major: ${major}`);
 
     // الحصول على department_id
     const { data: dept } = await supabase
       .from('departments')
       .select('id')
-      .eq('code', 'MIS')
+      .eq('code', departmentCode)
       .single();
+
+    console.log(`📚 [Signup] Department found:`, dept);
 
     // إنشاء سجل في جدول users
     const { data: userData, error: userError } = await supabase
@@ -232,30 +451,57 @@ app.post('/make-server-1573e40a/auth/signup', async (c) => {
       return c.json({ error: 'فشل إنشاء المستخدم' }, 500);
     }
 
+    console.log('✅ [Signup] User created successfully:', userData.id);
+
     // ✅ إنشاء سجل في جدول students فقط إذا كان الدور طالب
     if (role === 'student' || !role) {
-      console.log(`📚 [Signup] Creating student record with level: ${level ? parseInt(level) : 1}, gpa: ${gpa ? parseFloat(gpa) : 0.0}, major: ${major || 'MIS'}`);
+      // ✅ التحقق من وجود البيانات المطلوبة للطالب
+      if (!level || !major) {
+        console.error('❌ [Signup] Student registration missing required fields:', { level, major });
+        await supabase.auth.admin.deleteUser(authData.user.id);
+        await supabase.from('users').delete().eq('id', userData.id);
+        return c.json({ 
+          error: 'بيانات الطالب غير كاملة: المستوى والتخصص مطلوبان',
+          details: 'Level and major are required for student accounts'
+        }, 400);
+      }
       
-      const { error: studentError } = await supabase
+      const studentLevel = parseInt(level);
+      const studentGPA = gpa ? parseFloat(gpa) : 0.0;
+      const studentMajor = major; // ✅ استخدام القيمة الفعلية بدون fallback
+      
+      console.log(`📚 [Signup] Creating student record with:`, {
+        user_id: userData.id,
+        level: studentLevel,
+        gpa: studentGPA,
+        major: studentMajor
+      });
+      
+      const { data: studentData, error: studentError } = await supabase
         .from('students')
         .insert({
           user_id: userData.id,
-          level: level ? parseInt(level) : 1, // ✅ استخدام المستوى من الطلب
-          gpa: gpa ? parseFloat(gpa) : 0.0, // ✅ استخدام المعدل من الطلب
+          level: studentLevel, // ✅ استخدام المستوى الفعلي من الطلب
+          gpa: studentGPA, // ✅ استخدام المعدل من الطلب
           total_credits: 0,
           completed_credits: 0,
-          major: major || 'MIS', // ✅ استخدام التخصص من الطلب
+          major: studentMajor, // ✅ استخدام التخصص الفعلي من الطلب
           status: 'active',
           enrollment_year: new Date().getFullYear(),
           expected_graduation_year: new Date().getFullYear() + 4,
-        });
+        })
+        .select()
+        .single();
 
       if (studentError) {
         console.error('❌ Student creation error:', studentError);
+        console.error('❌ Student error details:', JSON.stringify(studentError));
         await supabase.auth.admin.deleteUser(authData.user.id);
         await supabase.from('users').delete().eq('id', userData.id);
-        return c.json({ error: 'فشل إنشاء سجل الطالب' }, 500);
+        return c.json({ error: `فشل إنشاء سجل الطالب: ${studentError.message}` }, 500);
       }
+      
+      console.log('✅ [Signup] Student record created successfully:', studentData);
     }
 
     // ✅ إنشاء سجل في جدول supervisors إذا كان الدور مشرف
@@ -277,7 +523,27 @@ app.post('/make-server-1573e40a/auth/signup', async (c) => {
       }
     }
 
-    console.log('✅ Signup successful:', finalStudentId, '-', role);
+    console.log('✅ [Signup] Account creation successful:', finalStudentId, '-', role);
+    
+    // ✅ التحقق من البيانات المحفوظة بجلبها من قاعدة البيانات
+    const { data: verifyData } = await supabase
+      .from('users')
+      .select(`
+        *,
+        students(*),
+        supervisors(*)
+      `)
+      .eq('id', userData.id)
+      .single();
+    
+    console.log('🔍 [Signup] Verification - Data saved in database:', {
+      user_id: verifyData?.id,
+      student_id: verifyData?.student_id,
+      role: verifyData?.role,
+      student_level: verifyData?.students?.[0]?.level,
+      student_gpa: verifyData?.students?.[0]?.gpa,
+      student_major: verifyData?.students?.[0]?.major
+    });
 
     return c.json({
       success: true,
@@ -385,7 +651,7 @@ app.get('/make-server-1573e40a/courses/available', async (c) => {
       return c.json({ error: 'Student not found' }, 404);
     }
 
-    const studentLevel = userData.students[0]?.level || 1;
+    const studentLevel = userData.students?.[0]?.level || 1;
 
     // Get available course offers
     const { data: courseOffers, error } = await supabase
@@ -991,9 +1257,9 @@ app.get('/make-server-1573e40a/registrations', async (c) => {
         student: student ? {
           full_name: student.name,
           email: student.email,
-          major: student.students?.major || 'نظم المعلومات الإدارية',
-          level: student.students?.level || 1,
-          gpa: student.students?.gpa || null,
+          major: student.students?.[0]?.major || student.students?.major || 'Management Information Systems',
+          level: student.students?.[0]?.level || student.students?.level || 1,
+          gpa: student.students?.[0]?.gpa || student.students?.gpa || null,
         } : null,
       };
     });
@@ -1183,9 +1449,34 @@ app.get('/make-server-1573e40a/student/registrations', async (c) => {
     // Get user from access token
     const { data: authUser, error: authError } = await supabase.auth.getUser(accessToken);
 
-    if (authError || !authUser?.user) {
-      console.error('❌ [Student] Invalid or expired token:', authError?.message);
-      return c.json({ success: false, error: 'Invalid or expired token' }, 401);
+    if (authError) {
+      console.error('❌ [Student] Auth error:', authError.message, authError.code);
+      
+      // ✅ معالجة خاصة للـ token منتهي الصلاحية أو المستخدم المحذوف
+      if (authError.code === 'user_not_found' || authError.status === 403) {
+        return c.json({ 
+          success: false, 
+          error: 'Token expired or user not found',
+          code: 'USER_NOT_FOUND',
+          details: 'Please login again'
+        }, 401);
+      }
+      
+      return c.json({ 
+        success: false, 
+        error: 'Invalid token',
+        code: 'INVALID_TOKEN',
+        details: authError.message
+      }, 401);
+    }
+    
+    if (!authUser?.user) {
+      console.error('❌ [Student] No user returned from getUser');
+      return c.json({ 
+        success: false, 
+        error: 'User not found',
+        code: 'USER_NOT_FOUND'
+      }, 401);
     }
 
     // Get user details from database
@@ -1196,8 +1487,13 @@ app.get('/make-server-1573e40a/student/registrations', async (c) => {
       .single();
 
     if (userError || !user) {
-      console.error('❌ [Student] User not found in database');
-      return c.json({ success: false, error: 'User not found' }, 404);
+      console.error('❌ [Student] User not found in database:', userError?.message);
+      return c.json({ 
+        success: false, 
+        error: 'User not found in database',
+        code: 'USER_NOT_IN_DB',
+        details: 'Your account exists in Auth but not in database. Please contact support.'
+      }, 404);
     }
 
     console.log('✅ [Student] User authenticated:', user.student_id);
@@ -1462,18 +1758,19 @@ app.get('/make-server-1573e40a/students/:id', async (c) => {
   }
 });
 
-// حذف طالب (تعطيل الحساب)
+// حذف طالب (حذف نهائي - HARD DELETE)
 app.delete('/make-server-1573e40a/students/:id', async (c) => {
   try {
     const studentId = c.req.param('id');
 
-    console.log('🗑️ [Server] Deleting student:', studentId);
+    console.log('🗑️ [Server] Deleting student (HARD DELETE):', studentId);
 
     // البحث عن الطالب أولاً
     const { data: student, error: findError } = await supabase
       .from('users')
-      .select('id, student_id, name')
+      .select('id, student_id, name, role, auth_id')
       .eq('student_id', studentId)
+      .eq('role', 'student')
       .single();
 
     if (findError || !student) {
@@ -1483,22 +1780,55 @@ app.delete('/make-server-1573e40a/students/:id', async (c) => {
 
     console.log('✅ [Server] Found student:', student);
 
-    // تعطيل الطالب بدلاً من حذفه (Soft Delete)
-    const { error } = await supabase
-      .from('users')
-      .update({ active: false })
-      .eq('student_id', studentId);
+    // ✅ حذف حقيقي (Hard Delete) مع جميع العلاقات
+    
+    // 1. حذف registrations
+    console.log('🗑️ Deleting student registrations...');
+    await supabase
+      .from('registrations')
+      .delete()
+      .eq('student_id', student.id);
 
-    if (error) {
-      console.error('❌ Error deleting student:', error);
-      return c.json({ success: false, error: error.message }, 500);
+    // 2. حذف notifications
+    console.log('🗑️ Deleting student notifications...');
+    await supabase
+      .from('notifications')
+      .delete()
+      .eq('user_id', student.id);
+
+    // 3. حذف سجل الطالب من جدول students
+    console.log('🗑️ Deleting from students table...');
+    await supabase
+      .from('students')
+      .delete()
+      .eq('user_id', student.id);
+
+    // 4. حذف المستخدم من جدول users
+    console.log('🗑️ Deleting from users table...');
+    const { error: deleteUserError } = await supabase
+      .from('users')
+      .delete()
+      .eq('id', student.id);
+
+    if (deleteUserError) {
+      console.error('❌ Error deleting user from users table:', deleteUserError);
+      return c.json({ success: false, error: deleteUserError.message }, 500);
     }
 
-    console.log('✅ [Server] Student deleted successfully');
+    // 5. حذف من Supabase Auth
+    if (student.auth_id) {
+      console.log('🗑️ Deleting from Supabase Auth...');
+      const { error: authDeleteError } = await supabase.auth.admin.deleteUser(student.auth_id);
+      if (authDeleteError) {
+        console.warn('⚠️ Warning: Could not delete from Auth:', authDeleteError.message);
+      }
+    }
+
+    console.log('✅ [Server] Student permanently deleted with all related data');
 
     return c.json({
       success: true,
-      message: 'Student deleted successfully',
+      message: 'Student permanently deleted with all related data',
       deletedStudent: {
         id: student.id,
         studentId: student.student_id,
@@ -1756,66 +2086,159 @@ app.put('/make-server-1573e40a/supervisors/:id', async (c) => {
   }
 });
 
-// حذف مشرف (مدير فقط)
+// حذف مشرف (حذف نهائي - HARD DELETE)
 app.delete('/make-server-1573e40a/supervisors/:id', async (c) => {
   try {
     const employeeId = c.req.param('id');
 
-    console.log('🗑️ [Server] Deleting supervisor:', employeeId);
+    console.log('🗑️ [Server] Deleting supervisor (HARD DELETE):', employeeId);
 
-    // Soft delete
-    const { error } = await supabase
+    // البحث عن المشرف أولاً للتحقق من وجوده
+    const { data: supervisor, error: findError } = await supabase
       .from('users')
-      .update({ active: false })
+      .select('id, student_id, name, role, auth_id')
       .eq('student_id', employeeId)
-      .eq('role', 'supervisor');
+      .or('role.eq.supervisor,role.eq.admin')
+      .single();
 
-    if (error) {
-      console.error('❌ Error deleting supervisor:', error);
-      return c.json({ error: error.message }, 500);
+    if (findError || !supervisor) {
+      console.error('❌ [Server] Supervisor not found:', employeeId, findError);
+      return c.json({ success: false, error: 'Supervisor not found' }, 404);
     }
 
-    console.log('✅ [Server] Supervisor deleted successfully');
+    console.log('✅ [Server] Found supervisor:', supervisor);
+
+    // ✅ حذف حقيقي (Hard Delete) مع جميع العلاقات
+    
+    // 1. حذف notifications
+    console.log('🗑️ Deleting supervisor notifications...');
+    await supabase
+      .from('notifications')
+      .delete()
+      .eq('user_id', supervisor.id);
+
+    // 2. تحديث registrations (إزالة supervisor_id من الطلبات)
+    console.log('🗑️ Updating registrations (removing supervisor reference)...');
+    await supabase
+      .from('registrations')
+      .update({ approved_by: null })
+      .eq('approved_by', supervisor.id);
+
+    // 3. حذف سجل المشرف من جدول supervisors
+    console.log('🗑️ Deleting from supervisors table...');
+    await supabase
+      .from('supervisors')
+      .delete()
+      .eq('user_id', supervisor.id);
+
+    // 4. حذف سجل المشرف من جدول admins (إذا كان مدير)
+    if (supervisor.role === 'admin') {
+      console.log('🗑️ Deleting from admins table...');
+      await supabase
+        .from('admins')
+        .delete()
+        .eq('user_id', supervisor.id);
+    }
+
+    // 5. حذف المستخدم من جدول users
+    console.log('🗑️ Deleting from users table...');
+    const { error: deleteUserError } = await supabase
+      .from('users')
+      .delete()
+      .eq('id', supervisor.id);
+
+    if (deleteUserError) {
+      console.error('❌ Error deleting user from users table:', deleteUserError);
+      return c.json({ success: false, error: deleteUserError.message }, 500);
+    }
+
+    // 6. حذف من Supabase Auth
+    if (supervisor.auth_id) {
+      console.log('🗑️ Deleting from Supabase Auth...');
+      const { error: authDeleteError } = await supabase.auth.admin.deleteUser(supervisor.auth_id);
+      if (authDeleteError) {
+        console.warn('⚠️ Warning: Could not delete from Auth:', authDeleteError.message);
+      }
+    }
+
+    console.log('✅ [Server] Supervisor permanently deleted with all related data');
 
     return c.json({
       success: true,
-      message: 'Supervisor deleted successfully',
+      message: 'Supervisor permanently deleted with all related data',
+      deletedSupervisor: {
+        id: supervisor.id,
+        employeeId: supervisor.student_id,
+        name: supervisor.name
+      }
     });
 
   } catch (error: any) {
     console.error('❌ Delete supervisor error:', error);
-    return c.json({ error: 'Failed to delete supervisor' }, 500);
+    return c.json({ success: false, error: 'Failed to delete supervisor' }, 500);
   }
 });
 
-// حذف مشرف - endpoint بديل للمدير
+// حذف مشرف - endpoint بديل للمدير (HARD DELETE)
 app.delete('/make-server-1573e40a/admin/delete-supervisor', async (c) => {
   try {
     const { userId } = await c.req.json();
 
-    console.log('🗑️ [Admin] Deleting supervisor by user_id:', userId);
+    console.log('🗑️ [Admin] Deleting supervisor by user_id (HARD DELETE):', userId);
 
     if (!userId) {
       return c.json({ error: 'User ID required' }, 400);
     }
 
-    // Soft delete by user id
-    const { error } = await supabase
+    // البحث عن المشرف
+    const { data: supervisor, error: findError } = await supabase
       .from('users')
-      .update({ active: false })
+      .select('id, student_id, name, role, auth_id')
       .eq('id', userId)
-      .eq('role', 'supervisor');
+      .or('role.eq.supervisor,role.eq.admin')
+      .single();
 
-    if (error) {
-      console.error('❌ Error deleting supervisor:', error);
-      return c.json({ error: error.message }, 500);
+    if (findError || !supervisor) {
+      console.error('❌ Supervisor not found:', userId, findError);
+      return c.json({ error: 'Supervisor not found' }, 404);
     }
 
-    console.log('✅ [Admin] Supervisor deleted successfully');
+    // حذف جميع العلاقات
+    console.log('🗑️ Deleting supervisor notifications...');
+    await supabase.from('notifications').delete().eq('user_id', supervisor.id);
+
+    console.log('🗑️ Updating registrations...');
+    await supabase.from('registrations').update({ approved_by: null }).eq('approved_by', supervisor.id);
+
+    console.log('🗑️ Deleting from supervisors table...');
+    await supabase.from('supervisors').delete().eq('user_id', supervisor.id);
+
+    if (supervisor.role === 'admin') {
+      console.log('🗑️ Deleting from admins table...');
+      await supabase.from('admins').delete().eq('user_id', supervisor.id);
+    }
+
+    // حذف من users
+    const { error: deleteError } = await supabase
+      .from('users')
+      .delete()
+      .eq('id', userId);
+
+    if (deleteError) {
+      console.error('❌ Error deleting supervisor:', deleteError);
+      return c.json({ error: deleteError.message }, 500);
+    }
+
+    // حذف من Auth
+    if (supervisor.auth_id) {
+      await supabase.auth.admin.deleteUser(supervisor.auth_id);
+    }
+
+    console.log('✅ [Admin] Supervisor permanently deleted');
 
     return c.json({
       success: true,
-      message: 'Supervisor deleted successfully',
+      message: 'Supervisor permanently deleted with all related data',
     });
 
   } catch (error: any) {
@@ -1860,8 +2283,8 @@ app.get('/make-server-1573e40a/dashboard/student/:studentId', async (c) => {
     return c.json({
       success: true,
       stats: {
-        level: user.students[0]?.level || 1,
-        gpa: user.students[0]?.gpa || 0,
+        level: user.students?.[0]?.level || 1,
+        gpa: user.students?.[0]?.gpa || 0,
         totalCredits,
         completedCredits,
         registeredCourses: approved.length,
@@ -2082,7 +2505,7 @@ app.post('/make-server-1573e40a/reports/generate', async (c) => {
         year,
         total_credits: totalCredits,
         semester_gpa: semesterGpa,
-        cumulative_gpa: user.students[0]?.gpa || 0,
+        cumulative_gpa: user.students?.[0]?.gpa || 0,
         total_courses: totalCourses,
         passed_courses: passedCourses,
         failed_courses: failedCourses,
@@ -2158,11 +2581,18 @@ app.get('/make-server-1573e40a/admin/student-report/:studentId', async (c) => {
     console.log('📊 [Admin] Fetching student report:', studentId);
 
     // التحقق من صلاحية المدير أو المشرف
-    const { data: adminUser } = await supabase.auth.getUser(accessToken);
-    if (!adminUser?.user) {
-      console.warn('⚠️ [Admin] No auth user found');
-      return c.json({ success: false, error: 'Unauthorized' }, 401);
+    if (!accessToken) {
+      console.warn('⚠️ [Admin] No access token provided');
+      return c.json({ success: false, error: 'Unauthorized - No token' }, 401);
     }
+
+    const { data: adminUser, error: authError } = await supabase.auth.getUser(accessToken);
+    if (authError || !adminUser?.user) {
+      console.error('⚠️ [Admin] Token verification failed:', authError?.message || 'No user');
+      return c.json({ success: false, error: 'Unauthorized - Invalid or expired token' }, 401);
+    }
+
+    console.log('✅ [Admin] Token verified for user:', adminUser.user.id);
 
     const { data: admin } = await supabase
       .from('users')
@@ -2381,11 +2811,19 @@ app.get('/make-server-1573e40a/admin/students', async (c) => {
     console.log('👥 [Admin] Fetching all students...');
 
     // التحقق من صلاحية المدير أو المشرف
-    const { data: adminUser } = await supabase.auth.getUser(accessToken);
-    if (!adminUser?.user) {
-      console.warn('⚠️ [Admin] No auth user found');
-      return c.json({ success: false, error: 'Unauthorized' }, 401);
+    if (!accessToken) {
+      console.warn('⚠️ [Admin] No access token provided');
+      return c.json({ success: false, error: 'Unauthorized - No token' }, 401);
     }
+
+    // التحقق من صحة الـ token باستخدام service role
+    const { data: adminUser, error: authError } = await supabase.auth.getUser(accessToken);
+    if (authError || !adminUser?.user) {
+      console.error('⚠️ [Admin] Token verification failed:', authError?.message || 'No user');
+      return c.json({ success: false, error: 'Unauthorized - Invalid or expired token' }, 401);
+    }
+
+    console.log('✅ [Admin] Token verified for user:', adminUser.user.id);
 
     const { data: admin } = await supabase
       .from('users')
@@ -2471,11 +2909,18 @@ app.get('/make-server-1573e40a/admin/registration-requests', async (c) => {
     console.log('📋 [Admin] Fetching registration requests...');
 
     // التحقق من صلاحية المدير أو المشرف
-    const { data: adminUser } = await supabase.auth.getUser(accessToken);
-    if (!adminUser?.user) {
-      console.warn('⚠️ [Admin] No auth user found');
-      return c.json({ success: false, error: 'Unauthorized' }, 401);
+    if (!accessToken) {
+      console.warn('⚠️ [Admin] No access token provided');
+      return c.json({ success: false, error: 'Unauthorized - No token' }, 401);
     }
+
+    const { data: adminUser, error: authError } = await supabase.auth.getUser(accessToken);
+    if (authError || !adminUser?.user) {
+      console.error('⚠️ [Admin] Token verification failed:', authError?.message || 'No user');
+      return c.json({ success: false, error: 'Unauthorized - Invalid or expired token' }, 401);
+    }
+
+    console.log('✅ [Admin] Token verified for user:', adminUser.user.id);
 
     const { data: admin } = await supabase
       .from('users')
@@ -2626,11 +3071,18 @@ app.post('/make-server-1573e40a/admin/process-registration-request', async (c) =
     console.log('📝 [Admin] Processing registration request:', { request_id, action, note });
 
     // التحقق من صلاحية المدير أو المشرف
-    const { data: authUser } = await supabase.auth.getUser(accessToken);
-    if (!authUser?.user) {
-      console.warn('⚠️ [Admin] No auth user found');
-      return c.json({ success: false, error: 'Unauthorized' }, 401);
+    if (!accessToken) {
+      console.warn('⚠️ [Admin] No access token provided');
+      return c.json({ success: false, error: 'Unauthorized - No token' }, 401);
     }
+
+    const { data: authUser, error: authError } = await supabase.auth.getUser(accessToken);
+    if (authError || !authUser?.user) {
+      console.error('⚠️ [Admin] Token verification failed:', authError?.message || 'No user');
+      return c.json({ success: false, error: 'Unauthorized - Invalid or expired token' }, 401);
+    }
+
+    console.log('✅ [Admin] Token verified for user:', authUser.user.id);
 
     const { data: currentUser } = await supabase
       .from('users')

@@ -108,19 +108,6 @@ export const ReportsPage: React.FC = () => {
   const isAdmin = userRole === 'admin';
 
   useEffect(() => {
-    // Set timeout for loading state
-    const loadingTimeout = setTimeout(() => {
-      if (loading) {
-        console.warn('⚠️ [Reports] Loading timeout - forcing stop');
-        setLoading(false);
-        toast.error(
-          language === 'ar'
-            ? 'انتهى وقت التحميل - يرجى المحاولة مرة أخرى'
-            : 'Loading timeout - Please try again'
-        );
-      }
-    }, 15000); // 15 seconds timeout
-
     if (isStudent) {
       fetchRegistrations();
     } else if (isAdmin) {
@@ -128,8 +115,6 @@ export const ReportsPage: React.FC = () => {
     } else {
       setLoading(false);
     }
-
-    return () => clearTimeout(loadingTimeout);
   }, [isStudent, isAdmin]);
 
   // Apply filters
@@ -236,6 +221,25 @@ export const ReportsPage: React.FC = () => {
       }
     } catch (error: any) {
       console.error('❌ [Reports] Error fetching students:', error);
+      
+      // التحقق من خطأ 401 (Unauthorized)
+      if (error.message?.includes('401') || error.message?.includes('Invalid JWT')) {
+        console.error('🔒 [Reports] Token expired or invalid - redirecting to login');
+        toast.error(
+          language === 'ar'
+            ? 'انتهت صلاحية الجلسة. يرجى تسجيل الدخول مرة أخرى'
+            : 'Session expired. Please login again'
+        );
+        // مسح البيانات القديمة
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('userInfo');
+        // إعادة التوجيه لصفحة تسجيل الدخول
+        setTimeout(() => {
+          setCurrentPage('login');
+        }, 2000);
+        return;
+      }
+      
       setAllStudents([]);
       setFilteredStudents([]);
       const errorMessage = getErrorMessage(

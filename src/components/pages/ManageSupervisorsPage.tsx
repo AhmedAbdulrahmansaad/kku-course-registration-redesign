@@ -314,23 +314,30 @@ export const ManageSupervisorsPage: React.FC = () => {
 
       if (!selectedSupervisor) return;
 
+      console.log('🗑️ [ManageSupervisors] Deleting supervisor:', selectedSupervisor.student_id);
+
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/admin/delete-supervisor`,
+        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/supervisors/${selectedSupervisor.student_id}`,
         {
           method: 'DELETE',
           headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${accessToken}`,
+            Authorization: `Bearer ${accessToken || publicAnonKey}`,
           },
-          body: JSON.stringify({
-            userId: selectedSupervisor.user_id,
-          }),
         }
       );
 
-      const result = await response.json();
+      console.log('🗑️ [ManageSupervisors] Delete response status:', response.status);
 
-      if (response.ok) {
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ [ManageSupervisors] Delete error:', errorText);
+        throw new Error(`Server error: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ [ManageSupervisors] Supervisor deleted:', result);
+
+      if (result.success) {
         toast.success(
           language === 'ar'
             ? '✅ تم حذف المشرف بنجاح'
@@ -340,10 +347,10 @@ export const ManageSupervisorsPage: React.FC = () => {
         setSelectedSupervisor(null);
         await fetchSupervisors();
       } else {
-        throw new Error(result.error);
+        throw new Error(result.error || 'Failed to delete supervisor');
       }
     } catch (error: any) {
-      console.error('Error deleting supervisor:', error);
+      console.error('❌ [ManageSupervisors] Error deleting supervisor:', error);
       toast.error(
         error.message || (language === 'ar' ? 'فشل في حذف المشرف' : 'Failed to delete supervisor')
       );

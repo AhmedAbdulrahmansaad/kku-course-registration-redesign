@@ -53,11 +53,22 @@ export const LoginPage: React.FC = () => {
 
       if (!response.ok) {
         console.error('❌ خطأ في تسجيل الدخول:', result.error);
-        toast.error(
-          language === 'ar' 
-            ? result.error || 'بيانات الدخول غير صحيحة' 
-            : 'Invalid credentials'
-        );
+        console.error('💡 نصيحة:', result.hint);
+        
+        // عرض رسالة الخطأ مع النصيحة
+        const errorMessage = language === 'ar' 
+          ? result.error || 'بيانات الدخول غير صحيحة' 
+          : 'Invalid credentials';
+        
+        const hintMessage = result.hint 
+          ? (language === 'ar' ? result.hint : result.hint)
+          : null;
+        
+        toast.error(errorMessage, {
+          description: hintMessage,
+          duration: 5000,
+        });
+        
         setLoading(false);
         return;
       }
@@ -70,29 +81,67 @@ export const LoginPage: React.FC = () => {
       console.log('📊 GPA from students table:', result.user.students?.[0]?.gpa);
       console.log('📊 Major from students table:', result.user.students?.[0]?.major);
 
-      // حفظ بيانات المستخدم من SQL Database
+      // ✅ التحقق من بيانات الطالب فقط إذا كان الدور "student"
+      if (result.user.role === 'student') {
+        if (!result.user.students || result.user.students.length === 0) {
+          console.error('❌ Student data is missing from database!');
+          toast.error(
+            language === 'ar'
+              ? 'خطأ: بيانات الطالب غير موجودة في قاعدة البيانات'
+              : 'Error: Student data not found in database',
+            { description: language === 'ar' ? 'يرجى التواصل مع الدعم الفني' : 'Please contact support' }
+          );
+        } else {
+          console.log('✅ Student data found:', {
+            level: result.user.students[0]?.level,
+            major: result.user.students[0]?.major,
+            gpa: result.user.students[0]?.gpa,
+            total_credits: result.user.students[0]?.total_credits,
+            completed_credits: result.user.students[0]?.completed_credits,
+          });
+        }
+      } else {
+        // ✅ مشرف أو مدير - ليس لديهم بيانات طالب
+        console.log('✅ User is supervisor/admin - no student data needed');
+      }
+
+      // ✅ حفظ بيانات المستخدم من SQL Database - بدون قيم افتراضية خاطئة
+      const studentData = result.user.students?.[0];
+      
+      // ✅ استخدام البيانات الفعلية من SQL بدون قيم افتراضية للطلاب
       const userInfo = {
         name: result.user.name,
         id: result.user.student_id,
         user_db_id: result.user.id, // ✅ إضافة ID من جدول users
         email: result.user.email,
-        major: result.user.students?.[0]?.major || 'MIS',
-        level: result.user.students?.[0]?.level || 1,
-        gpa: result.user.students?.[0]?.gpa || 0,
+        // ✅ استخدام البيانات من SQL مباشرة - لا قيم افتراضية
+        major: studentData?.major || null,
+        level: studentData?.level !== undefined ? studentData.level : null,
+        gpa: studentData?.gpa !== undefined ? studentData.gpa : 0,
+        total_credits: studentData?.total_credits || 0,
+        completed_credits: studentData?.completed_credits || 0,
         role: result.user.role || 'student',
         access_token: result.access_token,
       };
       
       console.log('💾 Saving userInfo to localStorage:', userInfo);
+      console.log('📊 Student Level being saved:', userInfo.level);
+      console.log('📊 Student Major being saved:', userInfo.major);
+      console.log('📊 Student GPA being saved:', userInfo.gpa);
       
+      // ✅ تحديث Context و localStorage معاً
       setUserInfo(userInfo);
       setIsLoggedIn(true);
       
       // حفظ في localStorage
       localStorage.setItem('userInfo', JSON.stringify(userInfo));
       localStorage.setItem('access_token', result.access_token);
+      localStorage.setItem('isLoggedIn', 'true'); // ✅ إضافة flag واضح
       
-      console.log('✅ بيانات المستخدم محفوظة:', userInfo);
+      console.log('✅ بيانات المستخدم محفوظة في Context و localStorage');
+      console.log('✅ isLoggedIn:', true);
+      console.log('✅ userInfo.level:', userInfo.level);
+      console.log('✅ userInfo.major:', userInfo.major);
       
       toast.success(
         language === 'ar' 

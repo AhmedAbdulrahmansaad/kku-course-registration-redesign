@@ -50,8 +50,12 @@ export const exportAsText = (content: string, filename: string, language: 'ar' |
  * Export data as Word Document (.docx)
  * Uses simple HTML to DOCX conversion
  */
-export const exportAsWord = (htmlContent: string, filename: string, language: 'ar' | 'en') => {
+export const exportAsWord = (htmlContent: string | HTMLElement, filename: string, header?: string, footer?: string) => {
   try {
+    // Convert HTMLElement to string if needed
+    const content = typeof htmlContent === 'string' ? htmlContent : htmlContent.innerHTML;
+    const language: 'ar' | 'en' = document.dir === 'rtl' ? 'ar' : 'en';
+    
     // Create HTML template for Word
     const wordHtml = `
       <!DOCTYPE html>
@@ -96,7 +100,9 @@ export const exportAsWord = (htmlContent: string, filename: string, language: 'a
         </style>
       </head>
       <body>
-        ${htmlContent}
+        ${header || ''}
+        ${content}
+        ${footer || ''}
       </body>
       </html>
     `;
@@ -133,8 +139,12 @@ export const exportAsWord = (htmlContent: string, filename: string, language: 'a
  * Export data as Excel (.xlsx)
  * Uses HTML table to Excel conversion
  */
-export const exportAsExcel = (htmlContent: string, filename: string, language: 'ar' | 'en') => {
+export const exportAsExcel = (htmlContent: string | HTMLElement, filename: string, header?: string, footer?: string) => {
   try {
+    // Convert HTMLElement to string if needed
+    const content = typeof htmlContent === 'string' ? htmlContent : htmlContent.innerHTML;
+    const language: 'ar' | 'en' = document.dir === 'rtl' ? 'ar' : 'en';
+    
     // Create a simple HTML structure with table
     const excelHtml = `
       <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
@@ -172,7 +182,9 @@ export const exportAsExcel = (htmlContent: string, filename: string, language: '
         </style>
       </head>
       <body dir="${language === 'ar' ? 'rtl' : 'ltr'}">
-        ${htmlContent}
+        ${header || ''}
+        ${content}
+        ${footer || ''}
       </body>
       </html>
     `;
@@ -209,8 +221,12 @@ export const exportAsExcel = (htmlContent: string, filename: string, language: '
  * Export data as PDF
  * Uses browser print functionality with custom styling
  */
-export const exportAsPDF = (htmlContent: string, filename: string, language: 'ar' | 'en') => {
+export const exportAsPDF = (htmlContent: string | HTMLElement, filename: string, header?: string, footer?: string) => {
   try {
+    // Convert HTMLElement to string if needed
+    const content = typeof htmlContent === 'string' ? htmlContent : htmlContent.innerHTML;
+    const language: 'ar' | 'en' = document.dir === 'rtl' ? 'ar' : 'en';
+    
     // Create a new window for printing
     const printWindow = window.open('', '_blank');
     
@@ -340,7 +356,9 @@ export const exportAsPDF = (htmlContent: string, filename: string, language: 'ar
         </style>
       </head>
       <body>
-        ${htmlContent}
+        ${header || ''}
+        ${content}
+        ${footer || ''}
       </body>
       </html>
     `;
@@ -379,12 +397,7 @@ export const exportAsPDF = (htmlContent: string, filename: string, language: 'ar
 /**
  * Generate HTML header for exports
  */
-export const generateExportHeader = (
-  title: string,
-  subtitle: string,
-  studentInfo: any,
-  language: 'ar' | 'en'
-) => {
+export const generateExportHeader = (language: 'ar' | 'en', title?: string, subtitle?: string, studentInfo?: any) => {
   const timestamp = new Date().toLocaleString(language === 'ar' ? 'ar-SA' : 'en-US', {
     year: 'numeric',
     month: 'long',
@@ -429,7 +442,7 @@ export const generateExportHeader = (
           </svg>
         </div>
       </div>
-      <h2 style="margin-top: 15px; color: #184A2C; text-align: center;">${title}</h2>
+      ${title ? `<h2 style="margin-top: 15px; color: #184A2C; text-align: center;">${title}</h2>` : ''}
       ${subtitle ? `<p style="color: #666; text-align: center; margin: 10px 0;">${subtitle}</p>` : ''}
     </div>
     
