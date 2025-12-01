@@ -1,66 +1,67 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../contexts/AppContext';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { ScrollArea } from './ui/scroll-area';
 import {
   Bell,
-  BellOff,
+  X,
   CheckCircle2,
   XCircle,
+  AlertCircle,
+  Info,
   Clock,
-  Mail,
-  BookOpen,
-  X,
+  Trash2,
+  Eye,
   CheckCheck,
 } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
-import { projectId } from '../utils/supabase/info';
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from './ui/sheet';
+import { projectId, publicAnonKey } from '../utils/supabase/info';
 
-interface Notification {
-  notification_id: string;
-  student_id: string;
-  type: 'registration_approved' | 'registration_rejected';
+export interface Notification {
+  id: string;
+  user_id: string;
+  type: 'success' | 'error' | 'warning' | 'info';
   title_ar: string;
   title_en: string;
   message_ar: string;
   message_en: string;
-  course_id: string;
-  registration_id: string;
   read: boolean;
   created_at: string;
-  read_at?: string;
+  related_id?: string; // معرف المقرر أو الطلب المرتبط
+  action_url?: string; // رابط للانتقال للصفحة المرتبطة
 }
 
-export const NotificationsPanel: React.FC = () => {
-  const { language } = useApp();
+interface NotificationsPanelProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ isOpen, onClose }) => {
+  const { language, userInfo } = useApp();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
-  const [open, setOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
-    fetchNotifications();
-  }, []);
+    if (isOpen) {
+      fetchNotifications();
+    }
+  }, [isOpen]);
 
   const fetchNotifications = async () => {
     try {
+      setLoading(true);
       const accessToken = localStorage.getItem('access_token');
+      
       if (!accessToken) {
+        console.warn('⚠️ [Notifications] No access token');
         setLoading(false);
         return;
       }
 
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/student/notifications`,
+        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/notifications`,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -68,15 +69,16 @@ export const NotificationsPanel: React.FC = () => {
         }
       );
 
-      const result = await response.json();
-
       if (response.ok) {
+        const result = await response.json();
+        console.log('✅ [Notifications] Fetched notifications:', result.notifications);
         setNotifications(result.notifications || []);
+        setUnreadCount(result.unreadCount || 0);
       } else {
-        console.error('Failed to fetch notifications:', result.error);
+        console.error('❌ [Notifications] Failed to fetch:', response.status);
       }
-    } catch (error: any) {
-      console.error('Error fetching notifications:', error);
+    } catch (error) {
+      console.error('❌ [Notifications] Error:', error);
     } finally {
       setLoading(false);
     }
@@ -85,187 +87,292 @@ export const NotificationsPanel: React.FC = () => {
   const markAsRead = async (notificationId: string) => {
     try {
       const accessToken = localStorage.getItem('access_token');
-      if (!accessToken) return;
+      
+      if (!accessToken) {
+        return;
+      }
 
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/student/notification/read`,
+        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/notifications/${notificationId}/read`,
         {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
             Authorization: `Bearer ${accessToken}`,
           },
-          body: JSON.stringify({ notificationId }),
         }
       );
 
       if (response.ok) {
-        setNotifications((prev) =>
-          prev.map((n) =>
-            n.notification_id === notificationId ? { ...n, read: true } : n
-          )
+        console.log('✅ [Notifications] Marked as read:', notificationId);
+        // تحديث الإشعار محلياً
+        setNotifications(prev =>
+          prev.map(n => (n.id === notificationId ? { ...n, read: true } : n))
         );
+        setUnreadCount(prev => Math.max(0, prev - 1));
       }
-    } catch (error: any) {
-      console.error('Error marking notification as read:', error);
+    } catch (error) {
+      console.error('❌ [Notifications] Error marking as read:', error);
     }
   };
 
   const markAllAsRead = async () => {
     try {
       const accessToken = localStorage.getItem('access_token');
-      if (!accessToken) return;
+      
+      if (!accessToken) {
+        return;
+      }
 
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/student/notifications/read-all`,
+        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/notifications/read-all`,
         {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
             Authorization: `Bearer ${accessToken}`,
           },
         }
       );
 
       if (response.ok) {
-        setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+        console.log('✅ [Notifications] Marked all as read');
+        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+        setUnreadCount(0);
         toast.success(
-          language === 'ar'
-            ? 'تم تحديد جميع الإشعارات كمقروءة'
-            : 'All notifications marked as read'
+          language === 'ar' ? 'تم تحديد جميع الإشعارات كمقروءة' : 'All notifications marked as read'
         );
       }
-    } catch (error: any) {
-      console.error('Error marking all as read:', error);
+    } catch (error) {
+      console.error('❌ [Notifications] Error marking all as read:', error);
     }
   };
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const deleteNotification = async (notificationId: string) => {
+    try {
+      const accessToken = localStorage.getItem('access_token');
+      
+      if (!accessToken) {
+        return;
+      }
+
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/notifications/${notificationId}`,
+        {
+          method: 'DELETE',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      if (response.ok) {
+        console.log('✅ [Notifications] Deleted:', notificationId);
+        const deletedNotification = notifications.find(n => n.id === notificationId);
+        if (deletedNotification && !deletedNotification.read) {
+          setUnreadCount(prev => Math.max(0, prev - 1));
+        }
+        setNotifications(prev => prev.filter(n => n.id !== notificationId));
+        toast.success(
+          language === 'ar' ? 'تم حذف الإشعار' : 'Notification deleted'
+        );
+      }
+    } catch (error) {
+      console.error('❌ [Notifications] Error deleting:', error);
+    }
+  };
+
+  const getNotificationIcon = (type: string) => {
+    switch (type) {
+      case 'success':
+        return <CheckCircle2 className="h-5 w-5 text-green-600" />;
+      case 'error':
+        return <XCircle className="h-5 w-5 text-red-600" />;
+      case 'warning':
+        return <AlertCircle className="h-5 w-5 text-yellow-600" />;
+      default:
+        return <Info className="h-5 w-5 text-blue-600" />;
+    }
+  };
+
+  const getNotificationBg = (type: string, read: boolean) => {
+    const opacity = read ? '20' : '40';
+    switch (type) {
+      case 'success':
+        return `bg-green-50 dark:bg-green-950/${opacity} border-green-200 dark:border-green-800`;
+      case 'error':
+        return `bg-red-50 dark:bg-red-950/${opacity} border-red-200 dark:border-red-800`;
+      case 'warning':
+        return `bg-yellow-50 dark:bg-yellow-950/${opacity} border-yellow-200 dark:border-yellow-800`;
+      default:
+        return `bg-blue-50 dark:bg-blue-950/${opacity} border-blue-200 dark:border-blue-800`;
+    }
+  };
+
+  const formatTime = (timestamp: string) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) {
+      return language === 'ar' ? 'الآن' : 'Now';
+    } else if (diffMins < 60) {
+      return language === 'ar' ? `منذ ${diffMins} دقيقة` : `${diffMins} min ago`;
+    } else if (diffHours < 24) {
+      return language === 'ar' ? `منذ ${diffHours} ساعة` : `${diffHours} hours ago`;
+    } else if (diffDays < 7) {
+      return language === 'ar' ? `منذ ${diffDays} يوم` : `${diffDays} days ago`;
+    } else {
+      return date.toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US');
+    }
+  };
+
+  if (!isOpen) return null;
 
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger asChild>
-        <Button variant="outline" className="relative">
-          <Bell className="h-5 w-5" />
-          {unreadCount > 0 && (
-            <Badge
-              className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center bg-red-500 text-white"
-            >
-              {unreadCount > 9 ? '9+' : unreadCount}
-            </Badge>
-          )}
-        </Button>
-      </SheetTrigger>
-      <SheetContent className={language === 'ar' ? 'right-auto left-0' : ''}>
-        <SheetHeader>
-          <SheetTitle className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Bell className="h-5 w-5 text-[#184A2C]" />
-              <span>{language === 'ar' ? 'الإشعارات' : 'Notifications'}</span>
-            </div>
-            {unreadCount > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={markAllAsRead}
-                className="text-xs"
-              >
-                <CheckCheck className="h-4 w-4 mr-1" />
-                {language === 'ar' ? 'تحديد الكل كمقروء' : 'Mark all as read'}
-              </Button>
-            )}
-          </SheetTitle>
-          <SheetDescription>
-            {language === 'ar'
-              ? `لديك ${unreadCount} إشعار${unreadCount !== 1 ? 'ات' : ''} غير مقروء${unreadCount !== 1 ? 'ة' : ''}`
-              : `You have ${unreadCount} unread notification${unreadCount !== 1 ? 's' : ''}`}
-          </SheetDescription>
-        </SheetHeader>
+    <>
+      {/* Overlay */}
+      <div
+        className="fixed inset-0 bg-black/50 z-40 animate-fade-in"
+        onClick={onClose}
+      />
 
-        <ScrollArea className="h-[calc(100vh-150px)] mt-6">
-          <div className="space-y-3">
-            {loading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="spinner h-8 w-8" />
-              </div>
-            ) : notifications.length === 0 ? (
-              <Card className="p-8 text-center">
-                <BellOff className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                <p className="text-muted-foreground">
-                  {language === 'ar' ? 'لا توجد إشعارات' : 'No notifications'}
+      {/* Panel */}
+      <div
+        className={`fixed top-0 ${
+          language === 'ar' ? 'left-0' : 'right-0'
+        } h-full w-full sm:w-96 bg-white dark:bg-gray-900 shadow-2xl z-50 animate-slide-in-right overflow-hidden flex flex-col`}
+      >
+        {/* Header */}
+        <div className="bg-gradient-to-r from-[#184A2C] to-emerald-700 text-white p-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Bell className="h-6 w-6" />
+            <div>
+              <h2 className="text-xl font-bold">
+                {language === 'ar' ? 'الإشعارات' : 'Notifications'}
+              </h2>
+              {unreadCount > 0 && (
+                <p className="text-sm opacity-90">
+                  {language === 'ar'
+                    ? `${unreadCount} إشعار جديد`
+                    : `${unreadCount} new`}
                 </p>
-              </Card>
-            ) : (
-              notifications.map((notification) => (
-                <Card
-                  key={notification.notification_id}
-                  className={`p-4 cursor-pointer transition-all hover:shadow-md ${
-                    !notification.read ? 'bg-blue-50 border-blue-200' : ''
-                  }`}
-                  onClick={() => {
-                    if (!notification.read) {
-                      markAsRead(notification.notification_id);
-                    }
-                  }}
-                >
-                  <div className="flex items-start gap-3">
-                    <div
-                      className={`p-2 rounded-lg ${
-                        notification.type === 'registration_approved'
-                          ? 'bg-emerald-100'
-                          : 'bg-red-100'
-                      }`}
-                    >
-                      {notification.type === 'registration_approved' ? (
-                        <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-                      ) : (
-                        <XCircle className="h-5 w-5 text-red-600" />
+              )}
+            </div>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onClose}
+            className="text-white hover:bg-white/20"
+          >
+            <X className="h-5 w-5" />
+          </Button>
+        </div>
+
+        {/* Actions */}
+        {notifications.length > 0 && (
+          <div className="p-3 border-b flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={markAllAsRead}
+              className="flex-1"
+              disabled={unreadCount === 0}
+            >
+              <CheckCheck className="h-4 w-4 mr-2" />
+              {language === 'ar' ? 'تحديد الكل كمقروء' : 'Mark All Read'}
+            </Button>
+          </div>
+        )}
+
+        {/* Notifications List */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center h-full">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#184A2C]"></div>
+              <p className="mt-4 text-muted-foreground">
+                {language === 'ar' ? 'جاري التحميل...' : 'Loading...'}
+              </p>
+            </div>
+          ) : notifications.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-center">
+              <Bell className="h-20 w-20 text-gray-300 dark:text-gray-700 mb-4" />
+              <h3 className="text-lg font-bold mb-2">
+                {language === 'ar' ? 'لا توجد إشعارات' : 'No Notifications'}
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                {language === 'ar'
+                  ? 'ستظهر إشعاراتك هنا'
+                  : 'Your notifications will appear here'}
+              </p>
+            </div>
+          ) : (
+            notifications.map(notification => (
+              <Card
+                key={notification.id}
+                className={`p-4 border-2 transition-all hover:shadow-md ${getNotificationBg(
+                  notification.type,
+                  notification.read
+                )} ${!notification.read ? 'ring-2 ring-offset-2 ring-[#184A2C]/20' : ''}`}
+              >
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 mt-1">
+                    {getNotificationIcon(notification.type)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <h3 className="font-bold text-sm">
+                        {language === 'ar'
+                          ? notification.title_ar
+                          : notification.title_en}
+                      </h3>
+                      {!notification.read && (
+                        <Badge className="bg-[#184A2C] text-white text-xs px-2 py-0.5">
+                          {language === 'ar' ? 'جديد' : 'New'}
+                        </Badge>
                       )}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <h4 className="font-bold text-sm">
-                          {language === 'ar'
-                            ? notification.title_ar
-                            : notification.title_en}
-                        </h4>
-                        {!notification.read && (
-                          <div className="w-2 h-2 bg-blue-500 rounded-full mt-1" />
-                        )}
+                    <p className="text-sm text-muted-foreground mb-2">
+                      {language === 'ar'
+                        ? notification.message_ar
+                        : notification.message_en}
+                    </p>
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <div className="flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {formatTime(notification.created_at)}
                       </div>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {language === 'ar'
-                          ? notification.message_ar
-                          : notification.message_en}
-                      </p>
-                      <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          <span>
-                            {new Date(notification.created_at).toLocaleDateString(
-                              language === 'ar' ? 'ar-SA' : 'en-US',
-                              {
-                                month: 'short',
-                                day: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              }
-                            )}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <BookOpen className="h-3 w-3" />
-                          <span>{notification.course_id}</span>
-                        </div>
+                      <div className="flex gap-2">
+                        {!notification.read && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => markAsRead(notification.id)}
+                            className="h-7 px-2 text-xs"
+                          >
+                            <Eye className="h-3 w-3 mr-1" />
+                            {language === 'ar' ? 'تحديد كمقروء' : 'Mark Read'}
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => deleteNotification(notification.id)}
+                          className="h-7 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
                       </div>
                     </div>
                   </div>
-                </Card>
-              ))
-            )}
-          </div>
-        </ScrollArea>
-      </SheetContent>
-    </Sheet>
+                </div>
+              </Card>
+            ))
+          )}
+        </div>
+      </div>
+    </>
   );
 };

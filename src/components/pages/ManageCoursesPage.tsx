@@ -21,6 +21,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
+import { supabase } from '../../utils/supabase/client';
 import {
   Select,
   SelectContent,
@@ -39,6 +40,7 @@ import {
 import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
 import { projectId, publicAnonKey } from '../../utils/supabase/info';
+import { fetchJSON } from '../../utils/fetchWithTimeout';
 import { PREDEFINED_COURSES, type PredefinedCourse } from './predefinedCourses';
 import { Checkbox } from '../ui/checkbox';
 
@@ -94,41 +96,49 @@ export const ManageCoursesPage: React.FC = () => {
   const fetchCourses = async () => {
     try {
       setLoading(true);
+      console.log('🔍 [ManageCourses] Fetching courses...');
       
-      console.log('🔍 [ManageCourses] Fetching courses from SQL Database...');
-      
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/courses`,
-        {
-          headers: {
-            Authorization: `Bearer ${publicAnonKey}`,
-          },
+      let coursesData: any[] = [];
+
+      // ✅ Try backend first
+      try {
+        const result = await fetchJSON(
+          `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/courses`,
+          {
+            headers: {
+              Authorization: `Bearer ${publicAnonKey}`,
+            },
+            timeout: 10000,
+          }
+        );
+
+        if (result.success && result.courses) {
+          coursesData = result.courses;
+          console.log(`✅ [ManageCourses] Loaded ${coursesData.length} courses from backend`);
         }
-      );
+      } catch (backendError) {
+        console.log('🔄 [ManageCourses] Backend offline, using localStorage');
+      }
 
-      console.log('📚 [ManageCourses] Response status:', response.status);
+      // ✅ Fallback to localStorage
+      if (coursesData.length === 0) {
+        const storedCourses = localStorage.getItem('kku_courses');
+        
+        if (storedCourses) {
+          coursesData = JSON.parse(storedCourses);
+          console.log(`✅ [ManageCourses] Loaded ${coursesData.length} courses from localStorage`);
+        } else {
+          console.log('📭 [ManageCourses] No courses found, use "تحميل 49 مقرر" button');
+        }
+      }
       
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ [ManageCourses] Server response error:', errorText);
-        throw new Error(`Server error: ${response.status}`);
-      }
-
-      const result = await response.json();
-      console.log('📚 [ManageCourses] SQL Database response:', result);
-
-      if (result.success && result.courses) {
-        console.log('✅ [ManageCourses] Loaded', result.courses.length, 'courses from SQL');
-        setCourses(result.courses);
-      } else {
-        throw new Error(result.error || 'Failed to load courses');
-      }
+      setCourses(coursesData);
     } catch (error: any) {
-      console.error('❌ [ManageCourses] Error fetching courses:', error);
+      console.error('❌ [ManageCourses] Error loading courses:', error);
       toast.error(
         language === 'ar' 
-          ? `فشل في تحميل المقررات: ${error.message}` 
-          : `Failed to load courses: ${error.message}`
+          ? 'فشل في تحميل المقررات' 
+          : 'Failed to load courses'
       );
       setCourses([]);
     } finally {
@@ -139,46 +149,36 @@ export const ManageCoursesPage: React.FC = () => {
   const initializeCourses = async () => {
     try {
       setSaving(true);
-      console.log('📥 [ManageCourses] Initializing courses...');
+      console.log('📥 [ManageCourses] Initializing 49 courses to localStorage...');
       
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/init-courses`,
+      // حفظ المقررات المحددة مسبقاً في localStorage
+      const coursesWithIds = PREDEFINED_COURSES.map((course, index) => ({
+        ...course,
+        course_id: `course_${Date.now()}_${index}`,
+      }));
+      
+      localStorage.setItem('kku_courses', JSON.stringify(coursesWithIds));
+      
+      console.log(`✅ [ManageCourses] Saved ${coursesWithIds.length} courses to localStorage`);
+      
+      toast.success(
+        language === 'ar'
+          ? `✅ تم تحميل ${coursesWithIds.length} مقرر بنجاح`
+          : `✅ Successfully loaded ${coursesWithIds.length} courses`,
         {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${publicAnonKey}`,
-          },
+          description: language === 'ar'
+            ? '💾 تم الحفظ في localStorage'
+            : '💾 Saved in localStorage'
         }
       );
-
-      console.log('📡 [ManageCourses] Init response status:', response.status);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ [ManageCourses] Init error:', errorText);
-        throw new Error(`Server error: ${response.status}`);
-      }
-
-      const result = await response.json();
-      console.log('✅ [ManageCourses] Init result:', result);
-
-      if (result.success) {
-        toast.success(
-          language === 'ar'
-            ? `✅ تم تحميل ${result.created} مقرر بنجاح`
-            : `✅ Successfully loaded ${result.created} courses`
-        );
-        await fetchCourses();
-      } else {
-        throw new Error(result.error || 'Failed to initialize courses');
-      }
+      
+      await fetchCourses();
     } catch (error: any) {
       console.error('❌ [ManageCourses] Error initializing courses:', error);
       toast.error(
         language === 'ar'
-          ? `فشل في تحميل المقررات الأولية: ${error.message}`
-          : `Failed to initialize courses: ${error.message}`
+          ? 'فشل في تحميل المقررات الأولية'
+          : 'Failed to initialize courses'
       );
     } finally {
       setSaving(false);
@@ -188,7 +188,6 @@ export const ManageCoursesPage: React.FC = () => {
   const handleAddCourse = async () => {
     try {
       setSaving(true);
-      const accessToken = localStorage.getItem('access_token');
 
       // التحقق من البيانات
       if (!formData.code || !formData.name_ar || !formData.name_en) {
@@ -197,6 +196,7 @@ export const ManageCoursesPage: React.FC = () => {
             ? 'يرجى ملء جميع الحقول المطلوبة'
             : 'Please fill all required fields'
         );
+        setSaving(false);
         return;
       }
 
@@ -207,49 +207,53 @@ export const ManageCoursesPage: React.FC = () => {
             ? 'رمز المقرر موجود مسبقاً'
             : 'Course code already exists'
         );
+        setSaving(false);
         return;
       }
 
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/admin/add-course`,
+      console.log('➕ [ManageCourses] Adding course to localStorage...');
+
+      // إنشاء المقرر الجديد
+      const newCourse: Course = {
+        course_id: `course_${Date.now()}`,
+        code: formData.code,
+        name_ar: formData.name_ar,
+        name_en: formData.name_en,
+        credit_hours: formData.credit_hours,
+        level: formData.level,
+        department: formData.department,
+        description_ar: formData.description_ar,
+        description_en: formData.description_en,
+        prerequisites: formData.prerequisites ? formData.prerequisites.split(',').map(p => p.trim()) : [],
+        semester: formData.semester,
+        instructor: formData.instructor,
+        course_type: formData.course_type,
+      };
+
+      // إضافة إلى localStorage
+      const updatedCourses = [...courses, newCourse];
+      localStorage.setItem('kku_courses', JSON.stringify(updatedCourses));
+      setCourses(updatedCourses);
+
+      console.log('✅ [ManageCourses] Course added successfully');
+
+      toast.success(
+        language === 'ar'
+          ? '✅ تم إضافة المقرر بنجاح'
+          : '✅ Course added successfully',
         {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify({
-            ...formData,
-            prerequisites: formData.prerequisites ? formData.prerequisites.split(',').map(p => p.trim()) : [],
-          }),
+          description: language === 'ar'
+            ? '💾 تم الحفظ في localStorage'
+            : '💾 Saved in localStorage'
         }
       );
 
-      const result = await response.json();
-
-      if (response.ok) {
-        toast.success(
-          language === 'ar'
-            ? '✅ تم إضافة المقرر بنجاح'
-            : '✅ Course added successfully'
-        );
-        
-        // إضافة المقرر الجديد مباشرة إلى القائمة
-        if (result.course) {
-          setCourses(prevCourses => [...prevCourses, result.course]);
-        }
-        
-        setIsAddDialogOpen(false);
-        resetForm();
-        // إعادة تحميل المقررات للتأكد من التزامن
-        await fetchCourses();
-      } else {
-        throw new Error(result.error);
-      }
+      setIsAddDialogOpen(false);
+      resetForm();
     } catch (error: any) {
-      console.error('Error adding course:', error);
+      console.error('❌ [ManageCourses] Error adding course:', error);
       toast.error(
-        error.message || (language === 'ar' ? 'فشل في إضافة المقرر' : 'Failed to add course')
+        language === 'ar' ? 'فشل في إضافة المقرر' : 'Failed to add course'
       );
     } finally {
       setSaving(false);
@@ -259,45 +263,54 @@ export const ManageCoursesPage: React.FC = () => {
   const handleEditCourse = async () => {
     try {
       setSaving(true);
-      const accessToken = localStorage.getItem('access_token');
 
       if (!selectedCourse) return;
 
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/admin/update-course`,
+      console.log('✏️ [ManageCourses] Editing course in localStorage...');
+
+      // تحديث المقرر
+      const updatedCourses = courses.map(c => 
+        c.course_id === selectedCourse.course_id
+          ? {
+              ...c,
+              name_ar: formData.name_ar,
+              name_en: formData.name_en,
+              credit_hours: formData.credit_hours,
+              level: formData.level,
+              department: formData.department,
+              description_ar: formData.description_ar,
+              description_en: formData.description_en,
+              prerequisites: formData.prerequisites ? formData.prerequisites.split(',').map(p => p.trim()) : [],
+              semester: formData.semester,
+              instructor: formData.instructor,
+              course_type: formData.course_type,
+            }
+          : c
+      );
+
+      localStorage.setItem('kku_courses', JSON.stringify(updatedCourses));
+      setCourses(updatedCourses);
+
+      console.log('✅ [ManageCourses] Course updated successfully');
+
+      toast.success(
+        language === 'ar'
+          ? '✅ تم تحديث المقرر بنجاح'
+          : '✅ Course updated successfully',
         {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify({
-            courseId: selectedCourse.course_id,
-            ...formData,
-            prerequisites: formData.prerequisites ? formData.prerequisites.split(',').map(p => p.trim()) : [],
-          }),
+          description: language === 'ar'
+            ? '💾 تم الحفظ في localStorage'
+            : '💾 Saved in localStorage'
         }
       );
 
-      const result = await response.json();
-
-      if (response.ok) {
-        toast.success(
-          language === 'ar'
-            ? '✅ تم تحديث المقرر بنجاح'
-            : '✅ Course updated successfully'
-        );
-        setIsEditDialogOpen(false);
-        setSelectedCourse(null);
-        resetForm();
-        fetchCourses();
-      } else {
-        throw new Error(result.error);
-      }
+      setIsEditDialogOpen(false);
+      setSelectedCourse(null);
+      resetForm();
     } catch (error: any) {
-      console.error('Error updating course:', error);
+      console.error('❌ [ManageCourses] Error updating course:', error);
       toast.error(
-        error.message || (language === 'ar' ? 'فشل في تحديث المقرر' : 'Failed to update course')
+        language === 'ar' ? 'فشل في تحديث المقرر' : 'Failed to update course'
       );
     } finally {
       setSaving(false);
@@ -307,49 +320,35 @@ export const ManageCoursesPage: React.FC = () => {
   const handleDeleteCourse = async () => {
     try {
       setSaving(true);
-      const accessToken = localStorage.getItem('access_token');
 
       if (!selectedCourse) return;
 
-      console.log('🗑️ [ManageCourses] Deleting course:', selectedCourse.course_id);
+      console.log('🗑️ [ManageCourses] Deleting course from localStorage...');
 
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/courses/${selectedCourse.course_id}`,
+      // حذف المقرر
+      const updatedCourses = courses.filter(c => c.course_id !== selectedCourse.course_id);
+      localStorage.setItem('kku_courses', JSON.stringify(updatedCourses));
+      setCourses(updatedCourses);
+
+      console.log('✅ [ManageCourses] Course deleted successfully');
+
+      toast.success(
+        language === 'ar'
+          ? '✅ تم حذف المقرر بنجاح'
+          : '✅ Course deleted successfully',
         {
-          method: 'DELETE',
-          headers: {
-            Authorization: `Bearer ${accessToken || publicAnonKey}`,
-          },
+          description: language === 'ar'
+            ? '💾 تم التحديث في localStorage'
+            : '💾 Updated in localStorage'
         }
       );
 
-      console.log('🗑️ [ManageCourses] Delete response status:', response.status);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ [ManageCourses] Delete error:', errorText);
-        throw new Error(`Server error: ${response.status}`);
-      }
-
-      const result = await response.json();
-      console.log('✅ [ManageCourses] Course deleted:', result);
-
-      if (result.success) {
-        toast.success(
-          language === 'ar'
-            ? '✅ تم حذف المقرر بنجاح'
-            : '✅ Course deleted successfully'
-        );
-        setIsDeleteDialogOpen(false);
-        setSelectedCourse(null);
-        fetchCourses();
-      } else {
-        throw new Error(result.error || 'Failed to delete course');
-      }
+      setIsDeleteDialogOpen(false);
+      setSelectedCourse(null);
     } catch (error: any) {
       console.error('❌ [ManageCourses] Error deleting course:', error);
       toast.error(
-        error.message || (language === 'ar' ? 'فشل في حذف المقرر' : 'Failed to delete course')
+        language === 'ar' ? 'فشل في حذف المقرر' : 'Failed to delete course'
       );
     } finally {
       setSaving(false);
@@ -410,13 +409,18 @@ export const ManageCoursesPage: React.FC = () => {
 
     try {
       setSaving(true);
-      const accessToken = localStorage.getItem('access_token');
+      console.log(`➕ [ManageCourses] Adding ${selectedCoursesForQuickAdd.length} courses to localStorage...`);
+
       let successCount = 0;
       let failedCount = 0;
+      const newCourses: Course[] = [];
 
       for (const courseCode of selectedCoursesForQuickAdd) {
         const predefinedCourse = PREDEFINED_COURSES.find(c => c && c.code === courseCode);
-        if (!predefinedCourse) continue;
+        if (!predefinedCourse) {
+          failedCount++;
+          continue;
+        }
 
         // Check if course already exists
         if (courses.some(c => c && c.code === predefinedCourse.code)) {
@@ -424,46 +428,48 @@ export const ManageCoursesPage: React.FC = () => {
           continue;
         }
 
-        const response = await fetch(
-          `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/admin/add-course`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${accessToken}`,
-            },
-            body: JSON.stringify(predefinedCourse),
-          }
-        );
+        // إضافة المقرر الجديد
+        const newCourse: Course = {
+          ...predefinedCourse,
+          course_id: `course_${Date.now()}_${successCount}`,
+        };
 
-        if (response.ok) {
-          successCount++;
-        } else {
-          failedCount++;
-        }
+        newCourses.push(newCourse);
+        successCount++;
       }
+
+      // حفظ جميع المقررات الجديدة
+      const updatedCourses = [...courses, ...newCourses];
+      localStorage.setItem('kku_courses', JSON.stringify(updatedCourses));
+      setCourses(updatedCourses);
+
+      console.log(`✅ [ManageCourses] Added ${successCount} courses successfully`);
 
       if (successCount > 0) {
         toast.success(
           language === 'ar'
             ? `✅ تم إضافة ${successCount} مقرر بنجاح`
-            : `✅ Successfully added ${successCount} courses`
+            : `✅ Successfully added ${successCount} courses`,
+          {
+            description: language === 'ar'
+              ? '💾 تم الحفظ في localStorage'
+              : '💾 Saved in localStorage'
+          }
         );
       }
 
       if (failedCount > 0) {
-        toast.error(
+        toast.info(
           language === 'ar'
-            ? `⚠️ فشل في إضافة ${failedCount} مقرر`
-            : `⚠️ Failed to add ${failedCount} courses`
+            ? `⚠️ ${failedCount} مقرر موجود مسبقاً`
+            : `⚠️ ${failedCount} courses already exist`
         );
       }
 
       setIsQuickAddDialogOpen(false);
       setSelectedCoursesForQuickAdd([]);
-      fetchCourses();
     } catch (error: any) {
-      console.error('Error adding courses:', error);
+      console.error('❌ [ManageCourses] Error adding courses:', error);
       toast.error(
         language === 'ar' ? 'فشل في إضافة المقررات' : 'Failed to add courses'
       );

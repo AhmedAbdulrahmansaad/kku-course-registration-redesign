@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>اختبار جميع Endpoints</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #184A2C 0%, #2d7a4d 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    h1 {
+      color: white;
+      text-align: center;
+      margin-bottom: 30px;
+      font-size: 32px;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+    .test-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+    .test-card {
+      background: white;
+      border-radius: 15px;
+      padding: 25px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      transition: transform 0.3s;
+    }
+    .test-card:hover {
+      transform: translateY(-5px);
+    }
+    .test-card h2 {
+      color: #184A2C;
+      font-size: 18px;
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .icon {
+      font-size: 24px;
+    }
+    button {
+      background: #184A2C;
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      cursor: pointer;
+      width: 100%;
+      font-weight: bold;
+      transition: all 0.3s;
+    }
+    button:hover {
+      background: #2d7a4d;
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(24, 74, 44, 0.3);
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .result {
+      margin-top: 15px;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .success {
+      background: #d4edda;
+      border: 2px solid #28a745;
+      color: #155724;
+    }
+    .error {
+      background: #f8d7da;
+      border: 2px solid #dc3545;
+      color: #721c24;
+    }
+    .loading {
+      background: #fff3cd;
+      border: 2px solid #ffc107;
+      color: #856404;
+    }
+    .summary {
+      background: white;
+      border-radius: 15px;
+      padding: 30px;
+      margin-top: 20px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+    .summary h2 {
+      color: #184A2C;
+      margin-bottom: 20px;
+      font-size: 24px;
+    }
+    .summary-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px;
+      border-bottom: 1px solid #eee;
+    }
+    .summary-item:last-child {
+      border-bottom: none;
+    }
+    .badge {
+      padding: 5px 15px;
+      border-radius: 20px;
+      font-weight: bold;
+      font-size: 12px;
+    }
+    .badge-success {
+      background: #28a745;
+      color: white;
+    }
+    .badge-error {
+      background: #dc3545;
+      color: white;
+    }
+    .badge-pending {
+      background: #ffc107;
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🧪 اختبار جميع Endpoints</h1>
+    
+    <div class="test-grid">
+      <div class="test-card">
+        <h2><span class="icon">🏥</span> Health Check</h2>
+        <button onclick="testHealth()">اختبر</button>
+        <div id="health-result"></div>
+      </div>
+
+      <div class="test-card">
+        <h2><span class="icon">📚</span> Courses</h2>
+        <button onclick="testCourses()">اختبر</button>
+        <div id="courses-result"></div>
+      </div>
+
+      <div class="test-card">
+        <h2><span class="icon">📊</span> Admin Stats</h2>
+        <button onclick="testAdminStats()">اختبر</button>
+        <div id="admin-result"></div>
+      </div>
+
+      <div class="test-card">
+        <h2><span class="icon">✅</span> Signup</h2>
+        <button onclick="testSignup()">اختبر</button>
+        <div id="signup-result"></div>
+      </div>
+
+      <div class="test-card">
+        <h2><span class="icon">🔐</span> Login</h2>
+        <button onclick="testLogin()">اختبر</button>
+        <div id="login-result"></div>
+      </div>
+
+      <div class="test-card">
+        <h2><span class="icon">🎯</span> اختبار شامل</h2>
+        <button onclick="runAllTests()">اختبر الكل</button>
+        <div id="all-result"></div>
+      </div>
+    </div>
+
+    <div class="summary" id="summary" style="display: none;">
+      <h2>📋 ملخص النتائج</h2>
+      <div id="summary-content"></div>
+    </div>
+  </div>
+
+  <script>
+    const PROJECT_ID = 'kcbxyonombsqamwsmmqz';
+    const BASE_URL = `https://${PROJECT_ID}.supabase.co/functions/v1/make-server-1573e40a`;
+    const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtjYnh5b25vbWJzcWFtd3NtbXF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQzNzA3OTMsImV4cCI6MjA3OTk0Njc5M30.IR1b_sKmNZnPHSx_EBTI0G5ouARblxMepr24nOxq8iM';
+    
+    const results = {
+      health: null,
+      courses: null,
+      admin: null,
+      signup: null,
+      login: null
+    };
+
+    function showResult(elementId, type, message) {
+      const element = document.getElementById(elementId);
+      element.className = `result ${type}`;
+      element.textContent = message;
+    }
+
+    async function testHealth() {
+      const resultId = 'health-result';
+      showResult(resultId, 'loading', '⏳ جاري الاختبار...');
+
+      try {
+        const response = await fetch(`${BASE_URL}/health`);
+        const data = await response.json();
+        
+        if (data.status === 'ok') {
+          results.health = true;
+          showResult(resultId, 'success', `✅ نجح!\n\n${JSON.stringify(data, null, 2)}`);
+        } else {
+          results.health = false;
+          showResult(resultId, 'error', `❌ فشل\n\n${JSON.stringify(data, null, 2)}`);
+        }
+      } catch (error) {
+        results.health = false;
+        showResult(resultId, 'error', `❌ خطأ: ${error.message}\n\n🔧 تأكد من نشر Edge Function`);
+      }
+    }
+
+    async function testCourses() {
+      const resultId = 'courses-result';
+      showResult(resultId, 'loading', '⏳ جاري الاختبار...');
+
+      try {
+        const response = await fetch(`${BASE_URL}/courses`);
+        const data = await response.json();
+        
+        if (data.success && data.count > 0) {
+          results.courses = true;
+          showResult(resultId, 'success', `✅ نجح!\n\nعدد المقررات: ${data.count}\n\nأول 2:\n${data.courses.slice(0, 2).map(c => `- ${c.code}: ${c.name_ar}`).join('\n')}`);
+        } else if (data.count === 0) {
+          results.courses = false;
+          showResult(resultId, 'error', `⚠️ جدول courses فارغ!\n\n🔧 نفذ: 🔥-INSERT-ALL-DATA.sql`);
+        } else {
+          results.courses = false;
+          showResult(resultId, 'error', `❌ فشل\n\n${JSON.stringify(data, null, 2)}`);
+        }
+      } catch (error) {
+        results.courses = false;
+        showResult(resultId, 'error', `❌ خطأ: ${error.message}`);
+      }
+    }
+
+    async function testAdminStats() {
+      const resultId = 'admin-result';
+      showResult(resultId, 'loading', '⏳ جاري الاختبار...');
+
+      try {
+        const response = await fetch(`${BASE_URL}/dashboard/admin`, {
+          headers: {
+            'Authorization': `Bearer ${ANON_KEY}`
+          }
+        });
+        const data = await response.json();
+        
+        if (data.success && data.stats) {
+          results.admin = true;
+          showResult(resultId, 'success', `✅ نجح!\n\n${JSON.stringify(data.stats, null, 2)}`);
+        } else {
+          results.admin = false;
+          showResult(resultId, 'error', `❌ فشل\n\n${JSON.stringify(data, null, 2)}`);
+        }
+      } catch (error) {
+        results.admin = false;
+        showResult(resultId, 'error', `❌ خطأ: ${error.message}\n\n🔧 تحديث Edge Function مطلوب!\nراجع: 🔥-حل-نهائي-AdminDashboard.md`);
+      }
+    }
+
+    async function testSignup() {
+      const resultId = 'signup-result';
+      showResult(resultId, 'loading', '⏳ جاري الاختبار...');
+
+      const randomId = '442' + Math.floor(Math.random() * 900000 + 100000);
+      const randomEmail = `test${Date.now()}@kku.edu.sa`;
+
+      try {
+        const response = await fetch(`${BASE_URL}/auth/signup`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${ANON_KEY}`
+          },
+          body: JSON.stringify({
+            studentId: randomId,
+            email: randomEmail,
+            password: 'Test123!',
+            name: 'طالب اختبار',
+            phone: '0501234567',
+            role: 'student',
+            level: '1',
+            major: 'MIS',
+            gpa: '0.0'
+          })
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+          results.signup = true;
+          showResult(resultId, 'success', `✅ نجح!\n\nالرقم: ${randomId}\nالبريد: ${randomEmail}`);
+        } else {
+          results.signup = false;
+          showResult(resultId, 'error', `❌ فشل\n\n${data.error || JSON.stringify(data)}`);
+        }
+      } catch (error) {
+        results.signup = false;
+        showResult(resultId, 'error', `❌ خطأ: ${error.message}`);
+      }
+    }
+
+    async function testLogin() {
+      const resultId = 'login-result';
+      showResult(resultId, 'loading', '⏳ جاري الاختبار...\n\nأنشئ حساب أولاً (اختبار Signup)');
+      
+      // تأخير لإتاحة وقت للتسجيل
+      setTimeout(async () => {
+        try {
+          const response = await fetch(`${BASE_URL}/auth/login`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              identifier: '442200001',
+              password: 'Test123!'
+            })
+          });
+          const data = await response.json();
+          
+          if (data.success) {
+            results.login = true;
+            showResult(resultId, 'success', `✅ نجح!\n\nالمستخدم: ${data.user?.name || 'غير معروف'}`);
+          } else {
+            results.login = false;
+            showResult(resultId, 'error', `❌ فشل\n\n${data.error || 'أنشئ حساب 442200001 أولاً'}`);
+          }
+        } catch (error) {
+          results.login = false;
+          showResult(resultId, 'error', `❌ خطأ: ${error.message}`);
+        }
+      }, 1000);
+    }
+
+    async function runAllTests() {
+      showResult('all-result', 'loading', '⏳ جاري تشغيل جميع الاختبارات...');
+      
+      await testHealth();
+      await new Promise(r => setTimeout(r, 500));
+      
+      await testCourses();
+      await new Promise(r => setTimeout(r, 500));
+      
+      await testAdminStats();
+      await new Promise(r => setTimeout(r, 500));
+      
+      // Display summary
+      displaySummary();
+      
+      const passed = Object.values(results).filter(r => r === true).length;
+      const total = Object.values(results).filter(r => r !== null).length;
+      
+      if (passed === total && total > 0) {
+        showResult('all-result', 'success', `✅ نجحت جميع الاختبارات!\n\n${passed}/${total} اختبارات`);
+      } else {
+        showResult('all-result', 'error', `⚠️ بعض الاختبارات فشلت\n\n${passed}/${total} نجحت`);
+      }
+    }
+
+    function displaySummary() {
+      const summary = document.getElementById('summary');
+      const content = document.getElementById('summary-content');
+      
+      summary.style.display = 'block';
+      
+      const tests = [
+        { name: 'Health Check', key: 'health' },
+        { name: 'Courses', key: 'courses' },
+        { name: 'Admin Stats', key: 'admin' },
+        { name: 'Signup', key: 'signup' },
+        { name: 'Login', key: 'login' }
+      ];
+      
+      content.innerHTML = tests.map(test => {
+        const result = results[test.key];
+        let badge = '';
+        
+        if (result === true) {
+          badge = '<span class="badge badge-success">✅ نجح</span>';
+        } else if (result === false) {
+          badge = '<span class="badge badge-error">❌ فشل</span>';
+        } else {
+          badge = '<span class="badge badge-pending">⏳ معلق</span>';
+        }
+        
+        return `<div class="summary-item"><span>${test.name}</span>${badge}</div>`;
+      }).join('');
+    }
+
+    // Auto-run health check on load
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        testHealth();
+      }, 500);
+    });
+  </script>
+</body>
+</html>

@@ -119,9 +119,9 @@ app.post('/make-server-1573e40a/auth/logout', async (c) => {
 // إنشاء حساب جديد (تسجيل)
 app.post('/make-server-1573e40a/auth/signup', async (c) => {
   try {
-    const { studentId, email, password, name, phone } = await c.req.json();
+    const { studentId, email, password, name, phone, role, level, major, gpa } = await c.req.json();
 
-    console.log('📝 Signup attempt:', studentId);
+    console.log('📝 Signup attempt:', { studentId, role, level, major, gpa });
 
     // التحقق من عدم وجود المستخدم مسبقاً
     const { data: existing } = await supabase
@@ -159,7 +159,7 @@ app.post('/make-server-1573e40a/auth/signup', async (c) => {
         email,
         name,
         phone,
-        role: 'student',
+        role: role || 'student',
         active: true,
       })
       .select()
@@ -170,23 +170,74 @@ app.post('/make-server-1573e40a/auth/signup', async (c) => {
       return c.json({ error: 'Failed to create user' }, 500);
     }
 
-    // إنشاء سجل في جدول students
-    const { error: studentError } = await supabase
-      .from('students')
-      .insert({
-        user_id: userData.id,
-        level: 1,
-        gpa: 0.0,
-        total_credits: 0,
-        completed_credits: 0,
-        major: 'MIS',
-        status: 'active',
-        enrollment_year: new Date().getFullYear(),
-      });
+    // ✅ إذا كان طالب، إنشاء سجل في جدول students
+    if (role === 'student') {
+      // ✅ التحقق من أن البيانات الإلزامية موجودة للطلاب
+      if (!level || !major) {
+        console.error('❌ Missing required student data:', { level, major });
+        return c.json({ 
+          error: 'بيانات الطالب غير مكتملة. يرجى التأكد من اختيار التخصص والمستوى الدراسي',
+          error_en: 'Student data incomplete. Please ensure major and level are selected',
+          code: 'MISSING_STUDENT_DATA'
+        }, 400);
+      }
 
-    if (studentError) {
-      console.error('❌ Student creation error:', studentError);
-      return c.json({ error: 'Failed to create student record' }, 500);
+      const { error: studentError } = await supabase
+        .from('students')
+        .insert({
+          user_id: userData.id,
+          level: parseInt(level), // ✅ التحويل إلى رقم صريح
+          gpa: gpa ? parseFloat(gpa) : 0.0,
+          total_credits: 0,
+          completed_credits: 0,
+          major: major, // ✅ استخدام القيمة المرسلة بدون fallback
+          status: 'active',
+          enrollment_year: new Date().getFullYear(),
+        });
+
+      if (studentError) {
+        console.error('❌ Student creation error:', studentError);
+        return c.json({ error: 'Failed to create student record' }, 500);
+      }
+      
+      console.log('✅ Student record created with:', { level, major, gpa });
+    }
+    
+    // ✅ إذا كان مشرف، إنشاء سجل في جدول supervisors
+    if (role === 'supervisor') {
+      const { error: supervisorError } = await supabase
+        .from('supervisors')
+        .insert({
+          user_id: userData.id,
+          specialization: '',
+          office_location: '',
+          max_students: 50,
+          current_students: 0,
+        });
+
+      if (supervisorError) {
+        console.error('❌ Supervisor creation error:', supervisorError);
+        return c.json({ error: 'Failed to create supervisor record' }, 500);
+      }
+      
+      console.log('✅ Supervisor record created');
+    }
+    
+    // ✅ إذا كان مدير، إنشاء سجل في جدول admins
+    if (role === 'admin') {
+      const { error: adminError } = await supabase
+        .from('admins')
+        .insert({
+          user_id: userData.id,
+          permissions: ['all'],
+        });
+
+      if (adminError) {
+        console.error('❌ Admin creation error:', adminError);
+        return c.json({ error: 'Failed to create admin record' }, 500);
+      }
+      
+      console.log('✅ Admin record created');
     }
 
     console.log('✅ Signup successful:', studentId);

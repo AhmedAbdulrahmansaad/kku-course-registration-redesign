@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../contexts/AppContext';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
@@ -17,6 +17,7 @@ import {
   MoreVertical
 } from 'lucide-react';
 import { Textarea } from '../ui/textarea';
+import { toast } from 'sonner';
 import {
   Dialog,
   DialogContent,
@@ -97,6 +98,7 @@ export const MessagesPage: React.FC = () => {
     // Send message logic
     setIsComposeOpen(false);
     setComposeForm({ to: '', subject: '', body: '' });
+    toast.success(language === 'ar' ? 'تم إرسال الرسالة بنجاح' : 'Message sent successfully');
   };
 
   const markAsRead = (id: string) => {

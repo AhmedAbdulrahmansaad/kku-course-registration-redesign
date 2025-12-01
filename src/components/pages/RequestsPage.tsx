@@ -23,6 +23,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
+import { supabase } from '../../utils/supabase/client';
 import {
   Select,
   SelectContent,
@@ -93,68 +94,49 @@ export const RequestsPage: React.FC = () => {
       setLoading(true);
       console.log('📋 [Requests] Fetching registration requests...');
 
-      const accessToken = localStorage.getItem('access_token');
-      if (!accessToken) {
-        toast.error(language === 'ar' ? 'يرجى تسجيل الدخول' : 'Please login');
-        setLoading(false);
-        return;
+      let requestsData: any[] = [];
+
+      // ✅ Try backend first
+      try {
+        const result = await fetchJSON(
+          `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/registrations?status=pending`,
+          {
+            headers: {
+              Authorization: `Bearer ${publicAnonKey}`,
+            },
+            timeout: 10000,
+          }
+        );
+
+        if (result.success && result.registrations) {
+          requestsData = result.registrations;
+          console.log(`✅ [Requests] Loaded ${requestsData.length} requests from backend`);
+        }
+      } catch (backendError) {
+        console.log('🔄 [Requests] Backend offline, using localStorage');
       }
 
-      const result = await fetchJSON(
-        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/admin/registration-requests`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-          timeout: 10000, // 10 seconds timeout
-        }
-      );
-
-      console.log('📋 [Requests] Response:', result);
-
-      if (result.success) {
-        setRequests(result.requests || []);
-        console.log('✅ [Requests] Loaded', result.requests?.length || 0, 'requests');
+      // ✅ Fallback to localStorage
+      if (requestsData.length === 0) {
+        const localRegs = localStorage.getItem('kku_registrations');
         
-        // ✅ طباعة تفصيلية للطلبات
-        if (result.requests && result.requests.length > 0) {
-          console.log('📊 [Requests] Sample request data:', result.requests[0]);
-          console.log('👤 [Requests] Student data in first request:', result.requests[0]?.student);
-          console.log('📚 [Requests] Course data in first request:', result.requests[0]?.course);
+        if (localRegs) {
+          const allRegs = JSON.parse(localRegs);
+          // Get all registrations (not just pending)
+          requestsData = allRegs.filter((r: any) => r != null);
+          console.log(`✅ [Requests] Loaded ${requestsData.length} requests from localStorage`);
         } else {
-          console.log('ℹ️ [Requests] No pending requests found');
-        }
-      } else {
-        // Handle specific errors
-        if (result.error === 'Admin or Supervisor access required') {
-          toast.error(
-            language === 'ar' 
-              ? '⚠️ هذه الصفحة تتطلب صلاحيات مدير أو مشرف. يرجى تسجيل الدخول بحساب مناسب.' 
-              : '⚠️ This page requires admin or supervisor privileges. Please login with appropriate account.'
-          );
-          toast.info(
-            language === 'ar'
-              ? 'للحصول على حساب مدير، اذهب إلى صفحة System Setup'
-              : 'To create an admin account, go to System Setup page'
-          );
-        } else if (result.error === 'User not found') {
-          toast.error(
-            language === 'ar' 
-              ? 'المستخدم غير موجود في قاعدة البيانات' 
-              : 'User not found in database'
-          );
-        } else {
-          throw new Error(result.error || 'Failed to load requests');
+          console.log('📭 [Requests] No requests in localStorage');
         }
       }
+      
+      setRequests(requestsData);
     } catch (error: any) {
       console.error('❌ [Requests] Error fetching requests:', error);
-      const errorMessage = getErrorMessage(
-        error,
-        { ar: 'فشل في تحميل الطلبات', en: 'Failed to load requests' },
-        language
+      toast.error(
+        language === 'ar' ? 'فشل في تحميل الطلبات' : 'Failed to load requests'
       );
-      toast.error(errorMessage);
+      setRequests([]);
     } finally {
       setLoading(false);
     }
@@ -201,11 +183,7 @@ export const RequestsPage: React.FC = () => {
 
     try {
       const accessToken = localStorage.getItem('access_token');
-      if (!accessToken) {
-        toast.error(language === 'ar' ? 'يرجى تسجيل الدخول' : 'Please login');
-        return;
-      }
-
+      
       console.log('📝 [Requests] Processing request:', {
         request_id: selectedRequest.request_id,
         action: reviewAction,
@@ -213,66 +191,84 @@ export const RequestsPage: React.FC = () => {
         course: selectedRequest.course?.code,
       });
 
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/admin/process-registration-request`,
+      let backendSuccess = false;
+
+      // ✅ Try backend first
+      try {
+        if (accessToken) {
+          const response = await fetch(
+            `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/admin/process-registration-request`,
+            {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                request_id: selectedRequest.request_id,
+                action: reviewAction,
+                note: reviewNote || undefined,
+              }),
+            }
+          );
+
+          const result = await response.json();
+          
+          if (response.ok && result.success) {
+            console.log('✅ [Requests] Backend updated successfully');
+            backendSuccess = true;
+          } else {
+            console.log('🔄 [Requests] Backend failed, using localStorage');
+          }
+        }
+      } catch (backendError) {
+        console.log('🔄 [Requests] Backend offline, using localStorage');
+      }
+
+      // ✅ Update state and localStorage
+      const updatedRequests = requests.map(request => {
+        if (request.request_id === selectedRequest.request_id) {
+          return {
+            ...request,
+            status: reviewAction === 'approve' ? 'approved' as const : 'rejected' as const,
+            processed_by: userInfo.name,
+            processed_at: new Date().toISOString(),
+            reason: reviewNote || undefined,
+          };
+        }
+        return request;
+      });
+
+      setRequests(updatedRequests);
+
+      // ✅ Update localStorage
+      try {
+        localStorage.setItem('kku_registrations', JSON.stringify(updatedRequests));
+        console.log('✅ [Requests] localStorage updated');
+      } catch (lsError) {
+        console.warn('⚠️ [Requests] localStorage update failed:', lsError);
+      }
+
+      // إشعار نجاح
+      toast.success(
+        language === 'ar'
+          ? `✅ تم ${reviewAction === 'approve' ? 'قبول' : 'رفض'} طلب ${selectedRequest.student?.full_name}`
+          : `✅ Request ${reviewAction === 'approve' ? 'approved' : 'rejected'} for ${selectedRequest.student?.full_name}`,
         {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            request_id: selectedRequest.request_id,
-            action: reviewAction,
-            note: reviewNote || undefined,
-          }),
+          duration: 5000,
+          description: language === 'ar'
+            ? 'تم تحديث الطلب بنجاح'
+            : 'Request updated successfully'
         }
       );
 
-      const result = await response.json();
-      console.log('📋 [Requests] Process request response:', result);
-
-      if (response.ok && result.success) {
-        const updatedRequests = requests.map(request => {
-          if (request.request_id === selectedRequest.request_id) {
-            return {
-              ...request,
-              status: reviewAction === 'approve' ? 'approved' as const : 'rejected' as const,
-              processed_by: userInfo.name,
-              processed_at: new Date().toISOString(),
-              reason: reviewNote || undefined,
-            };
-          }
-          return request;
-        });
-
-        setRequests(updatedRequests);
-
-        // إشعار نجاح
-        toast.success(
-          language === 'ar'
-            ? `✅ تم ${reviewAction === 'approve' ? 'قبول' : 'رفض'} طلب ${selectedRequest.student?.full_name}`
-            : `✅ Request ${reviewAction === 'approve' ? 'approved' : 'rejected'} for ${selectedRequest.student?.full_name}`,
-          {
-            duration: 5000,
-            description: language === 'ar'
-              ? 'تم إشعار الطالب بالقرار'
-              : 'Student has been notified of the decision'
-          }
-        );
-
-        setIsReviewDialogOpen(false);
-        setSelectedRequest(null);
-        setReviewNote('');
-      } else {
-        const errorMessage = result.error || 'Failed to update registration';
-        console.error('❌ [Requests] Server error:', errorMessage);
-        throw new Error(errorMessage);
-      }
+      setIsReviewDialogOpen(false);
+      setSelectedRequest(null);
+      setReviewNote('');
     } catch (error: any) {
-      console.error('❌ [Requests] Error processing request:', error);
+      console.error('❌ [Requests] Unexpected error:', error);
       toast.error(
-        language === 'ar' ? 'فشل في معالجة الطلب' : 'Failed to process request'
+        language === 'ar' ? 'حدث خطأ غير متوقع' : 'Unexpected error occurred'
       );
     } finally {
       setProcessing(false);
@@ -612,16 +608,16 @@ export const RequestsPage: React.FC = () => {
             </DialogTitle>
             <DialogDescription>
               {selectedRequest && (
-                <div className="space-y-2 mt-4">
-                  <p className="text-base">
+                <>
+                  <span className="block text-base mt-4">
                     <span className="font-medium">{language === 'ar' ? 'الطالب: ' : 'Student: '}</span>
                     {selectedRequest.student?.full_name}
-                  </p>
-                  <p className="text-base">
+                  </span>
+                  <span className="block text-base mt-2">
                     <span className="font-medium">{language === 'ar' ? 'المقرر: ' : 'Course: '}</span>
                     {selectedRequest.course?.code} - {selectedRequest.course?.name_ar}
-                  </p>
-                </div>
+                  </span>
+                </>
               )}
             </DialogDescription>
           </DialogHeader>

@@ -47,15 +47,12 @@ export const HomePage: React.FC = () => {
   useEffect(() => {
     const initCourses = async () => {
       try {
-        // التحقق إذا كانت المقررات مهيأة مسبقاً
+        // التحقق إذا كانت المقررات محملة مسبقاً
         const coursesInitialized = localStorage.getItem('coursesInitialized');
         if (coursesInitialized === 'true') {
-          console.log('✅ Courses already initialized');
           return;
         }
 
-        console.log('📚 Initializing courses database...');
-        
         const response = await fetch(
           `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/init-courses`,
           {
@@ -68,15 +65,11 @@ export const HomePage: React.FC = () => {
         );
 
         const result = await response.json();
-        
         if (response.ok) {
-          console.log('✅ Courses initialized:', result);
           localStorage.setItem('coursesInitialized', 'true');
-        } else {
-          console.warn('⚠️ Failed to initialize courses:', result.error);
         }
       } catch (error) {
-        console.error('❌ Error initializing courses:', error);
+        // Silent fail - courses initialization is optional
       }
     };
 

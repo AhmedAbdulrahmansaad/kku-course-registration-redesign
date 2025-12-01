@@ -1,0 +1,50 @@
+==========================================
+معلومات النسخ السريع - للاستخدام في Supabase
+==========================================
+
+🔹 اسم Edge Function (انسخه بالضبط):
+make-server-1573e40a
+
+==========================================
+
+🔹 Environment Variables (انسخ كل واحد):
+
+1️⃣ الأول:
+Name: SUPABASE_URL
+Value: https://kcbxyonombsqamwsmmqz.supabase.co
+
+2️⃣ الثاني:
+Name: SUPABASE_ANON_KEY
+Value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtjYnh5b25vbWJzcWFtd3NtbXF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQzNzA3OTMsImV4cCI6MjA3OTk0Njc5M30.IR1b_sKmNZnPHSx_EBTI0G5ouARblxMepr24nOxq8iM
+
+3️⃣ الثالث (الأهم):
+Name: SUPABASE_SERVICE_ROLE_KEY
+Value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtjYnh5b25vbWJzcWFtd3NtbXF6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NDM3MDc5MywiZXhwIjoyMDc5OTQ2NzkzfQ.5cgLm3CjLP0NzGE6riqoZTtABW1wljEEJ7iH0XAeJR0
+
+==========================================
+
+🔹 رابط الاختبار (افتحه في المتصفح بعد النشر):
+https://kcbxyonombsqamwsmmqz.supabase.co/functions/v1/make-server-1573e40a/health
+
+النتيجة المتوقعة:
+{"status":"ok","message":"KKU Course Registration System - SQL Database","database":"PostgreSQL via Supabase"}
+
+==========================================
+
+🔹 بيانات اختبار إنشاء حساب:
+الرقم الجامعي: 443123456
+البريد: test@student.kku.edu.sa
+كلمة المرور: Test123456
+الاسم: اختبار النظام
+الجوال: 0500000000
+الدور: طالب
+التخصص: نظم المعلومات الإدارية
+المستوى: 1
+
+==========================================
+
+✅ تم تحديث جميع الملفات في Figma Make
+✅ جميع المعلومات أعلاه جاهزة للاستخدام
+✅ فقط انسخ والصق في Supabase Dashboard
+
+==========================================

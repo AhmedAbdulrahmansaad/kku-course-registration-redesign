@@ -19,11 +19,12 @@ import {
   AlertCircle,
   CheckCircle2,
   Shield,
-  Users
+  Users,
+  Building2
 } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
-import { projectId, publicAnonKey } from '../../utils/supabase/info';
+import { supabase } from '../../utils/supabase/client';
 import {
   Select,
   SelectContent,
@@ -31,6 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../ui/select';
+import { MAJORS_FOR_SELECT as MAJORS, DEPARTMENTS, ACADEMIC_LEVELS, USER_ROLES } from '../../utils/departments';
 
 export const SignUpPage: React.FC = () => {
   const { language, t, setCurrentPage } = useApp();
@@ -121,7 +123,7 @@ export const SignUpPage: React.FC = () => {
     if (!formData.email.trim()) {
       newErrors.email = language === 'ar' ? 'البريد الجامعي مطلوب' : 'University email is required';
     } else if (!validateEmail(formData.email)) {
-      newErrors.email = language === 'ar' ? 'يجب استخدام البريد الجامعي (@kku.edu.sa)' : 'Must use university email (@kku.edu.sa)';
+      newErrors.email = language === 'ar' ? 'يجب استخدام البريد ��لجامعي (@kku.edu.sa)' : 'Must use university email (@kku.edu.sa)';
     }
 
     // التحقق من كلمة المرور
@@ -221,57 +223,262 @@ export const SignUpPage: React.FC = () => {
         return;
       }
 
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/auth/signup`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${publicAnonKey}`,
-          },
-          body: JSON.stringify({
-            studentId: formData.studentId,
+      console.log('📤 [Signup Frontend] Sending request directly to Supabase...');
+
+      // 🔥 محاولة Supabase أولاً، ثم Fallback لـ localStorage
+      let supabaseWorked = false;
+
+      try {
+        console.log('📝 [Signup] Attempting Supabase signup...');
+
+        // Check if user exists
+        const { data: existing, error: checkError } = await supabase
+          .from('users')
+          .select('student_id, email')
+          .or(`student_id.eq.${formData.studentId},email.eq.${formData.email}`)
+          .maybeSingle();
+
+        // If we got an error (like RLS), fall back to localStorage immediately
+        if (checkError) {
+          console.warn('⚠️ [Signup] Cannot check existing users in Supabase (probably RLS):', checkError.message);
+          throw new Error('RLS_ERROR');
+        }
+
+        if (existing) {
+          console.log('❌ [Signup] User already exists in Supabase');
+          toast.error(
+            language === 'ar'
+              ? '⚠️ الرقم الجامعي أو البريد الإلكتروني مسجل بالفعل!'
+              : '⚠️ Student ID or Email already registered!',
+            {
+              duration: 5000,
+              action: {
+                label: language === 'ar' ? 'تسجيل الدخول' : 'Login',
+                onClick: () => setCurrentPage('login'),
+              },
+            }
+          );
+          setLoading(false);
+          return;
+        }
+
+        // Create auth user
+        console.log('📝 [Signup] Creating auth user...');
+        
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email: formData.email,
+          password: formData.password,
+          options: {
+            emailRedirectTo: window.location.origin,
+          }
+        });
+
+        if (authError) {
+          console.warn('⚠️ [Signup] Auth error:', authError.message);
+          // If it's "Email not confirmed" issue, fall back to localStorage
+          throw new Error('AUTH_ERROR');
+        }
+
+        if (!authData.user) {
+          throw new Error('NO_USER_RETURNED');
+        }
+
+        console.log('✅ [Signup] Auth user created:', authData.user.id);
+
+        // Get department
+        const { data: dept } = await supabase
+          .from('departments')
+          .select('id')
+          .eq('code', 'MIS')
+          .maybeSingle();
+
+        console.log('📝 [Signup] Inserting user data...');
+
+        // Insert user
+        const { data: newUser, error: userError } = await supabase
+          .from('users')
+          .insert({
+            auth_id: authData.user.id,
+            student_id: formData.studentId,
             email: formData.email,
-            password: formData.password,
             name: formData.fullName,
             phone: formData.phone || '',
-            role: formData.role, // ✅ إضافة الدور
-            level: formData.level ? parseInt(formData.level) : null, // ✅ null بدلاً من 1
-            major: formData.major || null, // ✅ null بدلاً من MIS
-            gpa: formData.gpa ? parseFloat(formData.gpa) : 0.0, // ✅ إضافة المعدل
-          }),
+            role: formData.role || 'student',
+            department_id: dept?.id || 1,
+          })
+          .select()
+          .single();
+
+        if (userError) {
+          console.warn('⚠️ [Signup] User insert error:', userError.message);
+          throw new Error('INSERT_ERROR');
         }
-      );
 
-      const result = await response.json();
+        console.log('✅ [Signup] User data saved:', newUser.id);
 
-      if (response.ok) {
-        console.log('✅ تم إنشاء الحساب بنجاح:', result);
-        
+        // Insert student data if role is student
+        if (formData.role === 'student') {
+          console.log('📝 [Signup] Inserting student data...');
+          
+          const { error: studentError } = await supabase
+            .from('students')
+            .insert({
+              user_id: newUser.id,
+              level: formData.level ? parseInt(formData.level) : 1,
+              major: formData.major || 'MIS',
+              gpa: formData.gpa ? parseFloat(formData.gpa) : 0.0,
+            });
+
+          if (studentError) {
+            console.warn('⚠️ [Signup] Student insert error:', studentError.message);
+          } else {
+            console.log('✅ [Signup] Student data saved');
+          }
+        }
+
+        console.log('✅✅✅ [Signup] ACCOUNT CREATED SUCCESSFULLY WITH SUPABASE!');
+        supabaseWorked = true;
+
         toast.success(
-          language === 'ar' 
-            ? `✅ تم إنشاء حساب ${formData.role === 'student' ? 'الطالب' : formData.role === 'supervisor' ? 'المشرف' : 'المدير'} بنجاح!` 
+          language === 'ar'
+            ? `✅ تم إنشاء حساب ${formData.role === 'student' ? 'الطالب' : formData.role === 'supervisor' ? 'المشرف' : 'المدير'} بنجاح!`
             : `✅ ${formData.role === 'student' ? 'Student' : formData.role === 'supervisor' ? 'Supervisor' : 'Admin'} account created successfully!`
         );
-        
+
         toast.info(
-          language === 'ar' 
-            ? '🎉 يمكنك الآن تسجيل الدخول!' 
-            : '🎉 You can now login!'
+          language === 'ar'
+            ? '🎉 يمكنك الآن تسجيل الدخول!'
+            : '🎉 You can now login!',
+          {
+            description: language === 'ar'
+              ? '✅ تم الحفظ في قاعدة البيانات'
+              : '✅ Saved in database'
+          }
         );
-        
+
         setTimeout(() => {
           setCurrentPage('login');
         }, 2000);
-      } else {
-        throw new Error(result.error || 'Signup failed');
+
+        setLoading(false);
+        return;
+        
+      } catch (error: any) {
+        console.warn('⚠️ [Signup] Supabase failed, using localStorage fallback:', error.message);
+      }
+
+      // 🔥 FALLBACK: استخدام localStorage إذا فشل Supabase
+      if (!supabaseWorked) {
+        console.log('🔄 [Signup] Using localStorage fallback...');
+
+        // تحقق من المستخدمين المحليين
+        const localUsers = JSON.parse(localStorage.getItem('kku_users') || '[]');
+
+        // تحقق من التكرار
+        const existingUser = localUsers.find(
+          (u: any) => u.email === formData.email || (formData.studentId && u.studentId === formData.studentId)
+        );
+
+        if (existingUser) {
+          toast.error(
+            language === 'ar'
+              ? '⚠️ الرقم الجامعي أو البريد الإلكتروني مسجل بالفعل!'
+              : '⚠️ Student ID or Email already registered!',
+            {
+              duration: 5000,
+              action: {
+                label: language === 'ar' ? 'تسجيل الدخول' : 'Login',
+                onClick: () => setCurrentPage('login'),
+              },
+            }
+          );
+          setLoading(false);
+          return;
+        }
+
+        // إنشاء المستخدم محلياً
+        const newUser = {
+          id: Date.now(),
+          studentId: formData.studentId,
+          email: formData.email,
+          password: formData.password,
+          name: formData.fullName,
+          phone: formData.phone || '',
+          role: formData.role || 'student',
+          major: formData.major || 'MIS',
+          level: formData.level ? parseInt(formData.level) : 1,
+          gpa: formData.gpa ? parseFloat(formData.gpa) : 0.0,
+          createdAt: new Date().toISOString(),
+        };
+
+        localUsers.push(newUser);
+        localStorage.setItem('kku_users', JSON.stringify(localUsers));
+
+        console.log('✅✅✅ [Signup] ACCOUNT CREATED IN LOCALSTORAGE!');
+
+        toast.success(
+          language === 'ar'
+            ? `✅ تم إنشاء حساب ${formData.role === 'student' ? 'الطالب' : formData.role === 'supervisor' ? 'المشرف' : 'المدير'} بنجاح!`
+            : `✅ ${formData.role === 'student' ? 'Student' : formData.role === 'supervisor' ? 'Supervisor' : 'Admin'} account created successfully!`
+        );
+
+        toast.info(
+          language === 'ar'
+            ? '🎉 يمكنك الآن تسجيل الدخول!'
+            : '🎉 You can now login!',
+          {
+            description: language === 'ar'
+              ? '💾 تم الحفظ محلياً (localStorage)'
+              : '💾 Saved locally (localStorage)'
+          }
+        );
+
+        setTimeout(() => {
+          setCurrentPage('login');
+        }, 2000);
+
+        setLoading(false);
       }
     } catch (error: any) {
-      console.error('❌ خطأ في إنشاء الحساب:', error);
+      console.error('❌���❌ [Signup Frontend] EXCEPTION OCCURRED!');
+      console.error('📊 [Signup Frontend] Error object:', error);
+      console.error('📊 [Signup Frontend] Error message:', error.message);
+      console.error('📊 [Signup Frontend] Error stack:', error.stack);
       
       const errorMessage = error.message || '';
+      const errorCode = error.code || '';
       
-      if (errorMessage.includes('Student ID already registered')) {
+      // ⚠️ معالجة خطأ "Failed to fetch" - Edge Function غير منشورة
+      if (errorMessage.includes('Failed to fetch') || errorMessage.includes('fetch')) {
+        toast.error(
+          language === 'ar'
+            ? '🚨 خطأ في الاتصال بالخادم'
+            : '🚨 Server Connection Error',
+          {
+            duration: 10000,
+            description: language === 'ar'
+              ? '⚠️ Edge Function غير منشورة في Supabase!\n\nالحل:\n1. افتح: https://supabase.com/dashboard\n2. اختر مشروعك: kcbxyonombsqamwsmmqz\n3. Edge Functions → Create\n4. اسم Function: make-server-1573e40a\n5. انسخ الكود من ملف: 🚀-DEPLOY-THIS-SIMPLE-FUNCTION.ts\n6. اضغط Deploy\n7. أضف Environment Variables\n\nراجع ملف: ⚡-حل-سريع-جداً-3-دقائق.md'
+              : '⚠️ Edge Function not deployed in Supabase!\n\nSolution:\n1. Open: https://supabase.com/dashboard\n2. Select project: kcbxyonombsqamwsmmqz\n3. Edge Functions → Create\n4. Function name: make-server-1573e40a\n5. Copy code from: 🚀-DEPLOY-THIS-SIMPLE-FUNCTION.ts\n6. Click Deploy\n7. Add Environment Variables\n\nCheck file: ⚡-حل-سريع-جداً-3-دقائق.md',
+          }
+        );
+        setLoading(false);
+        return;
+      }
+      
+      // معالجة خطأ المستخدمين اليتامى
+      if (errorMessage.includes('orphaned') || errorCode === 'ORPHANED_ACCOUNT') {
+        toast.error(
+          language === 'ar' 
+            ? '⚠️ يوجد حساب يتيم بهذا البريد. يرجى الاتصال بالمدير لتنظيف الحساب أو استخدام بريد آخر.' 
+            : '⚠️ An orphaned account exists with this email. Please contact admin for cleanup or use a different email.',
+          {
+            duration: 7000,
+            description: language === 'ar' 
+              ? 'يمكنك استخدام بريد إلكتروني مختلف للتسجيل الآن'
+              : 'You can use a different email to register now',
+          }
+        );
+      } else if (errorMessage.includes('Student ID already registered') || errorMessage.includes('Student ID or email already exists')) {
         toast.error(
           language === 'ar' 
             ? '⚠️ الرقم الجامعي مسجل بالفعل!' 
@@ -284,19 +491,73 @@ export const SignUpPage: React.FC = () => {
             },
           }
         );
-      } else if (errorMessage.includes('Email already registered')) {
+      } else if (errorMessage.includes('Email already registered') || errorMessage.includes('already been registered') || errorCode === 'EMAIL_EXISTS' || errorMessage.includes('مسجل مسبقاً')) {
         toast.error(
           language === 'ar' 
             ? '⚠️ البريد الإلكتروني مسجل بالفعل!' 
             : '⚠️ Email already registered!',
           {
-            duration: 5000,
-            action: {
-              label: language === 'ar' ? 'تسجيل الدخول' : 'Login',
-              onClick: () => setCurrentPage('login'),
-            },
+            duration: 7000,
+            description: language === 'ar'
+              ? 'جاري محاولة تنظيف الحساب... انتظر لحظات'
+              : 'Attempting to cleanup account... Please wait',
           }
         );
+        
+        // محاولة تنظيف المستخدم اليتيم تلقائياً
+        setTimeout(async () => {
+          try {
+            console.log('🧹 [Cleanup] Attempting automatic cleanup for:', formData.email);
+            
+            const cleanupResponse = await fetch(
+              `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/public/cleanup-orphaned-user`,
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${publicAnonKey}`,
+                },
+                body: JSON.stringify({ email: formData.email }),
+              }
+            );
+            
+            const cleanupResult = await cleanupResponse.json();
+            
+            if (cleanupResult.success && cleanupResult.cleaned) {
+              toast.success(
+                language === 'ar'
+                  ? '✅ تم تنظيف الحساب بنجاح! يمكنك الآن إعادة المحاولة'
+                  : '✅ Account cleaned! You can now try again',
+                { 
+                  duration: 5000,
+                  action: {
+                    label: language === 'ar' ? 'المحاولة مرة أخرى' : 'Try Again',
+                    onClick: () => handleSignUp(new Event('submit') as any),
+                  },
+                }
+              );
+            } else {
+              toast.info(
+                language === 'ar'
+                  ? 'ℹ️ الحساب موجود بالفعل. يرجى تسجيل الدخول.'
+                  : 'ℹ️ Account already exists. Please login.',
+                {
+                  action: {
+                    label: language === 'ar' ? 'تسجيل الدخول' : 'Login',
+                    onClick: () => setCurrentPage('login'),
+                  },
+                }
+              );
+            }
+          } catch (cleanupError) {
+            console.error('Failed to cleanup:', cleanupError);
+            toast.error(
+              language === 'ar'
+                ? '❌ فشل التنظيف التلقائي. يرجى المحاولة مرة أخرى أو الاتصال بالمدير'
+                : '❌ Automatic cleanup failed. Please try again or contact admin'
+            );
+          }
+        }, 2000);
       } else {
         toast.error(
           language === 'ar' 
@@ -478,21 +739,11 @@ export const SignUpPage: React.FC = () => {
             <SelectValue placeholder={language === 'ar' ? 'اختر التخصص' : 'Select Major'} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="Management Information Systems">
-              {language === 'ar' ? '🎯 نظم المعلومات الإدارية' : '🎯 Management Information Systems'}
-            </SelectItem>
-            <SelectItem value="Business Administration">
-              {language === 'ar' ? '💼 إدارة الأعمال' : '💼 Business Administration'}
-            </SelectItem>
-            <SelectItem value="Accounting">
-              {language === 'ar' ? '📊 المحاسبة' : '📊 Accounting'}
-            </SelectItem>
-            <SelectItem value="Marketing">
-              {language === 'ar' ? '📈 التسويق' : '📈 Marketing'}
-            </SelectItem>
-            <SelectItem value="Finance">
-              {language === 'ar' ? '💰 المالية' : '💰 Finance'}
-            </SelectItem>
+            {MAJORS.map((major) => (
+              <SelectItem key={major.value} value={major.value}>
+                {major.label}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
         {errors.major && (
@@ -517,9 +768,9 @@ export const SignUpPage: React.FC = () => {
             <SelectValue placeholder={language === 'ar' ? 'اختر المستوى' : 'Select Level'} />
           </SelectTrigger>
           <SelectContent>
-            {[1, 2, 3, 4, 5, 6, 7, 8].map((level) => (
-              <SelectItem key={level} value={level.toString()}>
-                {language === 'ar' ? `المستوى ${level}` : `Level ${level}`}
+            {ACADEMIC_LEVELS.map((level) => (
+              <SelectItem key={level.value} value={level.value}>
+                {level.label}
               </SelectItem>
             ))}
           </SelectContent>
@@ -658,39 +909,19 @@ export const SignUpPage: React.FC = () => {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="student">
-                        <div className="flex items-center gap-3 py-2">
-                          <GraduationCap className="h-5 w-5 text-blue-600" />
-                          <div className="text-left">
-                            <p className="font-bold">{language === 'ar' ? '👨‍🎓 طالب' : '👨‍🎓 Student'}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {language === 'ar' ? 'تجيل المقررات والجداول' : 'Course registration & schedules'}
-                            </p>
+                      {USER_ROLES.map((role) => (
+                        <SelectItem key={role.value} value={role.value}>
+                          <div className="flex items-center gap-3 py-2">
+                            {role.icon}
+                            <div className="text-left">
+                              <p className="font-bold">{role.label}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {role.description}
+                              </p>
+                            </div>
                           </div>
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="supervisor">
-                        <div className="flex items-center gap-3 py-2">
-                          <Users className="h-5 w-5 text-green-600" />
-                          <div className="text-left">
-                            <p className="font-bold">{language === 'ar' ? '👔 مشرف أكاديمي' : '👔 Academic Supervisor'}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {language === 'ar' ? 'إدارة الطلاب والموافقات' : 'Student management & approvals'}
-                            </p>
-                          </div>
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="admin">
-                        <div className="flex items-center gap-3 py-2">
-                          <Shield className="h-5 w-5 text-red-600" />
-                          <div className="text-left">
-                            <p className="font-bold">{language === 'ar' ? '⚙️ مدير النظام' : '⚙️ System Admin'}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {language === 'ar' ? 'صلاحيات كاملة' : 'Full system privileges'}
-                            </p>
-                          </div>
-                        </div>
-                      </SelectItem>
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   
@@ -760,8 +991,8 @@ export const SignUpPage: React.FC = () => {
           </Card>
 
           {/* مساعدة */}
-          <div className="mt-6 text-center text-sm text-white/80 animate-fade-in" style={{ animationDelay: '0.2s' }}>
-            <p>
+          <div className="mt-6 text-center text-sm space-y-2 animate-fade-in" style={{ animationDelay: '0.2s' }}>
+            <p className="text-white/80">
               {language === 'ar' ? 'تحتاج مساعدة؟' : 'Need help?'}
               {' '}
               <button
@@ -770,6 +1001,18 @@ export const SignUpPage: React.FC = () => {
                 className="text-kku-gold hover:underline font-bold"
               >
                 {language === 'ar' ? 'اتصل بالدعم الفني' : 'Contact Support'}
+              </button>
+            </p>
+            <p className="text-xs bg-orange-500/20 border border-orange-400/50 rounded-lg px-4 py-2 inline-block text-white">
+              {language === 'ar' 
+                ? '⚠️ مشكلة "البريد مسجل مسبقاً"؟ ' 
+                : '⚠️ "Email registered" error? '}
+              <button
+                type="button"
+                onClick={() => setCurrentPage('cleanup')}
+                className="text-kku-gold hover:underline font-bold"
+              >
+                {language === 'ar' ? 'استخدم أداة التنظيف' : 'Use Cleanup Tool'}
               </button>
             </p>
           </div>

@@ -19,7 +19,12 @@ import {
   Lightbulb,
   Zap,
   CheckCircle,
-  XCircle
+  XCircle,
+  UserCheck,
+  Users,
+  BarChart3,
+  Settings,
+  ClipboardCheck
 } from 'lucide-react';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
 import { toast } from 'sonner';
@@ -33,21 +38,78 @@ interface Message {
   action?: 'success' | 'error' | 'info';
 }
 
-const quickQuestions = [
-  { ar: 'أضف لي مقرر نظم المعلومات', en: 'Add MIS course for me', icon: BookOpen },
-  { ar: 'احذف لي مقرر الإحصاء', en: 'Delete Statistics course', icon: XCircle },
-  { ar: 'اعرض لي جدولي الدراسي', en: 'Show me my schedule', icon: Calendar },
-  { ar: 'اذهب إلى صفحة التقارير', en: 'Go to reports page', icon: FileText },
-];
+const quickQuestionsMap = {
+  student: {
+    ar: [
+      { text: 'أضف لي مقرر نظم المعلومات', icon: BookOpen },
+      { text: 'احذف لي مقرر الإحصاء', icon: XCircle },
+      { text: 'اعرض لي جدولي الدراسي', icon: Calendar },
+      { text: 'اذهب إلى صفحة التقارير', icon: FileText },
+    ],
+    en: [
+      { text: 'Add MIS course for me', icon: BookOpen },
+      { text: 'Delete Statistics course', icon: XCircle },
+      { text: 'Show me my schedule', icon: Calendar },
+      { text: 'Go to reports page', icon: FileText },
+    ]
+  },
+  supervisor: {
+    ar: [
+      { text: 'عرض طلبات الطلاب المعلقة', icon: ClipboardCheck },
+      { text: 'اذهب إلى صفحة الطلبات', icon: FileText },
+      { text: 'عرض معلومات الطلاب', icon: Users },
+      { text: 'اذهب إلى التقارير', icon: BarChart3 },
+    ],
+    en: [
+      { text: 'Show pending student requests', icon: ClipboardCheck },
+      { text: 'Go to requests page', icon: FileText },
+      { text: 'Show students information', icon: Users },
+      { text: 'Go to reports', icon: BarChart3 },
+    ]
+  },
+  admin: {
+    ar: [
+      { text: 'عرض إحصائيات النظام', icon: BarChart3 },
+      { text: 'عرض جميع الطلاب', icon: Users },
+      { text: 'اذهب إلى لوحة التحكم', icon: Settings },
+      { text: 'عرض تقارير المشرفين', icon: FileText },
+    ],
+    en: [
+      { text: 'Show system statistics', icon: BarChart3 },
+      { text: 'Show all students', icon: Users },
+      { text: 'Go to admin dashboard', icon: Settings },
+      { text: 'Show supervisor reports', icon: FileText },
+    ]
+  }
+};
 
 export const AssistantPage: React.FC = () => {
-  const { language, setCurrentPage, registeredCourses, setRegisteredCourses, availableCourses } = useApp();
+  const { language, setCurrentPage, registeredCourses, setRegisteredCourses, availableCourses, userInfo } = useApp();
+  
+  // تحديد دور المستخدم (افتراضي: طالب)
+  const userRole = userInfo?.role || 'student';
+  
+  // الرسالة الترحيبية حسب الدور
+  const getWelcomeMessage = () => {
+    if (userRole === 'supervisor') {
+      return language === 'ar' 
+        ? '👋 مرحباً! أنا مساعدك الذكي المدعوم بالذكاء الاصطناعي الحقيقي!\n\n✨ أستطيع مساعدتك في:\n\n📋 مراجعة طلبات الطلاب\n✅ الموافقة أو رفض الطلبات\n👥 عرض معلومات الطلاب المشرف عليهم\n📊 التقارير الأكاديمية\n🔍 البحث والاستكشاف\n\nجرب سؤالاً الآن! 🚀'
+        : '👋 Welcome! I am your AI-powered smart assistant!\n\n✨ I can help you with:\n\n📋 Review student requests\n✅ Approve or reject requests\n👥 View supervised students information\n📊 Academic reports\n🔍 Search and exploration\n\nTry asking now! 🚀';
+    } else if (userRole === 'admin') {
+      return language === 'ar' 
+        ? '👋 مرحباً! أنا مساعدك الذكي المدعوم بالذكاء الاصطناعي الحقيقي!\n\n✨ أستطيع مساعدتك في:\n\n📊 عرض إحصائيات النظام الشاملة\n👥 إدارة الطلاب والمشرفين\n🏢 إدارة الأقسام والمقررات\n📈 التقارير الإدارية المتقدمة\n⚙️ إعدادات النظام\n\nجرب سؤالاً الآن! 🚀'
+        : '👋 Welcome! I am your AI-powered smart assistant!\n\n✨ I can help you with:\n\n📊 View comprehensive system statistics\n👥 Manage students and supervisors\n🏢 Manage departments and courses\n📈 Advanced administrative reports\n⚙️ System settings\n\nTry asking now! 🚀';
+    } else {
+      return language === 'ar' 
+        ? '👋 مرحباً! أنا مساعدك الذكي المدعوم بالذكاء الاصطناعي الحقيقي!\n\n✨ أستطيع مساعدتك في:\n\n📚 تسجيل المقررات والاستفسار عنها\n📅 الجداول والتقارير\n🔍 البحث والاستكشاف\n💡 الإجابة على جميع أسئلتك\n\nجرب سؤالاً الآن! 🚀'
+        : '👋 Welcome! I am your AI-powered smart assistant!\n\n✨ I can help you with:\n\n📚 Course registration and inquiries\n📅 Schedules and reports\n🔍 Search and exploration\n💡 Answer all your questions\n\nTry asking now! 🚀';
+    }
+  };
+
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '0',
-      text: language === 'ar' 
-        ? '👋 مرحباً! أنا مساعدك الذكي المدعوم بالذكاء الاصطناعي الحقيقي!\n\n✨ أستطيع مساعدتك في:\n\n📚 تسجيل المقررات والاستفسار عنها\n📅 الجداول والتقارير\n🔍 البحث والاستكشاف\n💡 الإجابة على جميع أسئلتك\n\nجرب سؤالاً الآن! 🚀'
-        : '👋 Welcome! I am your AI-powered smart assistant!\n\n✨ I can help you with:\n\n📚 Course registration and inquiries\n📅 Schedules and reports\n🔍 Search and exploration\n💡 Answer all your questions\n\nTry asking now! 🚀',
+      text: getWelcomeMessage(),
       isUser: false,
       timestamp: new Date(),
     },
@@ -64,102 +126,178 @@ export const AssistantPage: React.FC = () => {
     scrollToBottom();
   }, [messages]);
 
+  // Update welcome message when user role or language changes
+  useEffect(() => {
+    const welcomeMessage = getWelcomeMessage();
+    setMessages([{
+      id: '0',
+      text: welcomeMessage,
+      isUser: false,
+      timestamp: new Date(),
+    }]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userRole, language]);
+
   // Function to execute real actions
   const executeAction = (query: string): { response: string; action?: 'success' | 'error' | 'info' } => {
     const lowerQuery = query.toLowerCase().trim();
 
-    // Add Course Actions
-    if (lowerQuery.includes('أضف') || lowerQuery.includes('سجل') || lowerQuery.includes('add') || lowerQuery.includes('register')) {
-      // Find course to add
-      let courseToAdd = null;
-      
-      if (lowerQuery.includes('نظم المعلومات') || lowerQuery.includes('mis') || lowerQuery.includes('information systems')) {
-        courseToAdd = availableCourses.find(c => c.code === 'MIS301');
-      } else if (lowerQuery.includes('قواعد البيانات') || lowerQuery.includes('database')) {
-        courseToAdd = availableCourses.find(c => c.code === 'MIS302');
-      } else if (lowerQuery.includes('برمجة') || lowerQuery.includes('programming')) {
-        courseToAdd = availableCourses.find(c => c.code === 'CS201');
-      } else if (lowerQuery.includes('إدارة') || lowerQuery.includes('management')) {
-        courseToAdd = availableCourses.find(c => c.code === 'BUS201');
-      } else {
-        // Add first available course
-        courseToAdd = availableCourses[0];
-      }
-
-      if (courseToAdd) {
-        // Check if already registered
-        const alreadyRegistered = registeredCourses.some(c => c.code === courseToAdd.code);
-        
-        if (alreadyRegistered) {
-          toast.error(language === 'ar' ? 'المقرر مسجل مسبقاً!' : 'Course already registered!');
-          return {
-            response: language === 'ar'
-              ? `❌ المقرر "${courseToAdd.nameAr}" (${courseToAdd.code}) مسجل مسبقاً!\n\nلا يمكن تسجيل نفس المقرر مرتين.`
-              : `❌ Course "${courseToAdd.nameEn}" (${courseToAdd.code}) is already registered!\n\nCannot register the same course twice.`,
-            action: 'error'
-          };
-        }
-
-        // Add course
-        setRegisteredCourses([...registeredCourses, courseToAdd]);
-        toast.success(language === 'ar' ? 'تم إضافة المقرر بنجاح!' : 'Course added successfully!');
-        
+    // ===== أوامر المدير (Admin Commands) =====
+    if (userRole === 'admin') {
+      // عرض إحصائيات النظام
+      if (lowerQuery.includes('إحصائيات') || lowerQuery.includes('statistics') || lowerQuery.includes('stats')) {
+        setTimeout(() => setCurrentPage('admin-dashboard'), 1000);
         return {
           response: language === 'ar'
-            ? `✅ تم بنجاح! أضفت لك المقرر:\n\n📚 ${courseToAdd.nameAr}\n📋 الرمز: ${courseToAdd.code}\n👨‍🏫 الأستاذ: ${courseToAdd.instructor}\n⏰ الوقت: ${courseToAdd.time}\n🏛️ القاعة: ${courseToAdd.room}\n⭐ الساعات: ${courseToAdd.credits}\n\nيمكنك رؤيته الآن في جدولك الدراسي! 🎉`
-            : `✅ Done! I added the course for you:\n\n📚 ${courseToAdd.nameEn}\n📋 Code: ${courseToAdd.code}\n👨‍🏫 Instructor: ${courseToAdd.instructor}\n⏰ Time: ${courseToAdd.time}\n🏛️ Room: ${courseToAdd.room}\n⭐ Credits: ${courseToAdd.credits}\n\nYou can see it now in your schedule! 🎉`,
+            ? '✅ جاري عرض إحصائيات النظام الشاملة...\n\n📊 سأنقلك إلى لوحة التحكم الآن حيث يمكنك رؤية:\n• إجمالي عدد الطلاب\n• المقررات المسجلة\n• طلبات التسجيل المعلقة\n• معدلات النجاح\n\nانتظر قليلاً... ⏳'
+            : '✅ Displaying comprehensive system statistics...\n\n📊 Taking you to the admin dashboard where you can see:\n• Total number of students\n• Registered courses\n• Pending registration requests\n• Success rates\n\nPlease wait... ⏳',
+          action: 'success'
+        };
+      }
+
+      // عرض جميع الطلاب
+      if (lowerQuery.includes('طلاب') || lowerQuery.includes('students')) {
+        setTimeout(() => setCurrentPage('admin-dashboard'), 1000);
+        return {
+          response: language === 'ar'
+            ? '✅ جاري عرض قائمة جميع الطلاب...\n\n👥 سأنقلك إلى لوحة التحكم حيث يمكنك:\n• عرض جميع الطلاب المسجلين\n• البحث عن طالب معين\n• عرض تفاصيل كل طالب\n• إدارة حسابات الطلاب\n\nانتظر قليلاً... ⏳'
+            : '✅ Displaying list of all students...\n\n👥 Taking you to the admin dashboard where you can:\n• View all registered students\n• Search for specific student\n• View each student\'s details\n• Manage student accounts\n\nPlease wait... ⏳',
+          action: 'success'
+        };
+      }
+
+      // الذهاب إلى لوحة التحكم
+      if (lowerQuery.includes('لوحة') || lowerQuery.includes('dashboard') || lowerQuery.includes('control')) {
+        setTimeout(() => setCurrentPage('admin-dashboard'), 1000);
+        return {
+          response: language === 'ar'
+            ? '✅ حسناً! جاري نقلك إلى لوحة التحكم الإدارية...\n\n🎛️ ستجد هناك جميع أدوات الإدارة والإحصائيات.\n\nانتظر قليلاً... ⏳'
+            : '✅ Okay! Taking you to the admin dashboard...\n\n🎛️ You will find all management tools and statistics there.\n\nPlease wait... ⏳',
           action: 'success'
         };
       }
     }
 
-    // Delete Course Actions
-    if (lowerQuery.includes('احذف') || lowerQuery.includes('حذف') || lowerQuery.includes('delete') || lowerQuery.includes('remove')) {
-      if (registeredCourses.length === 0) {
+    // ===== أوامر المشرف (Supervisor Commands) =====
+    if (userRole === 'supervisor') {
+      // عرض طلبات الطلاب
+      if (lowerQuery.includes('طلبات') || lowerQuery.includes('requests') || lowerQuery.includes('pending')) {
+        setTimeout(() => setCurrentPage('supervisor-requests'), 1000);
         return {
           response: language === 'ar'
-            ? '❌ لا يوجد مقررات مسجلة للحذف!\n\nيجب أن تسجل مقررات أولاً.'
-            : '❌ No registered courses to delete!\n\nYou need to register courses first.',
-          action: 'error'
+            ? '✅ جاري عرض طلبات الطلاب المعلقة...\n\n📋 سأنقلك إلى صفحة الطلبات حيث يمكنك:\n• مراجعة جميع الطلبات المعلقة\n• الموافقة أو رفض الطلبات\n• عرض تفاصيل كل طلب\n• التواصل مع الطلاب\n\nانتظر قليلاً... ⏳'
+            : '✅ Displaying pending student requests...\n\n📋 Taking you to the requests page where you can:\n• Review all pending requests\n• Approve or reject requests\n• View details of each request\n• Communicate with students\n\nPlease wait... ⏳',
+          action: 'success'
         };
       }
 
-      // Delete first registered course
-      const courseToDelete = registeredCourses[0];
-      setRegisteredCourses(registeredCourses.filter(c => c.code !== courseToDelete.code));
-      toast.success(language === 'ar' ? 'تم حذف المقرر بنجاح!' : 'Course deleted successfully!');
-      
-      return {
-        response: language === 'ar'
-          ? `✅ تم حذف المقرر بنجا:\n\n📚 ${courseToDelete.nameAr}\n📋 الرمز: ${courseToDelete.code}\n\nتم إزالته من جدولك الدراسي.`
-          : `✅ Course deleted successfully:\n\n📚 ${courseToDelete.nameEn}\n📋 Code: ${courseToDelete.code}\n\nRemoved from your schedule.`,
-        action: 'success'
-      };
+      // عرض معلومات الطلاب
+      if (lowerQuery.includes('معلومات') && (lowerQuery.includes('طلاب') || lowerQuery.includes('students'))) {
+        setTimeout(() => setCurrentPage('supervisor-students'), 1000);
+        return {
+          response: language === 'ar'
+            ? '✅ جاري عرض معلومات الطلاب المشرف عليهم...\n\n👥 سأنقلك إلى صفحة الطلاب حيث يمكنك رؤية:\n• قائمة الطلاب المشرف عليهم\n• معدلاتهم التراكمية\n• المقررات المسجلة\n• الحالة الأكاديمية\n\nانتظر قليلاً... ⏳'
+            : '✅ Displaying information of supervised students...\n\n👥 Taking you to the students page where you can see:\n• List of supervised students\n• Their GPAs\n• Registered courses\n• Academic status\n\nPlease wait... ⏳',
+          action: 'success'
+        };
+      }
     }
 
-    // Show Schedule
-    if (lowerQuery.includes('جدول') || lowerQuery.includes('schedule')) {
-      if (registeredCourses.length === 0) {
+    // ===== أوامر الطالب (Student Commands) =====
+    if (userRole === 'student' || !userRole) {
+      // Add Course Actions
+      if (lowerQuery.includes('أضف') || lowerQuery.includes('سجل') || lowerQuery.includes('add') || lowerQuery.includes('register')) {
+        // Find course to add
+        let courseToAdd = null;
+        
+        if (lowerQuery.includes('نظم المعلومات') || lowerQuery.includes('mis') || lowerQuery.includes('information systems')) {
+          courseToAdd = availableCourses.find(c => c.code === 'MIS301');
+        } else if (lowerQuery.includes('قواعد البيانات') || lowerQuery.includes('database')) {
+          courseToAdd = availableCourses.find(c => c.code === 'MIS302');
+        } else if (lowerQuery.includes('برمجة') || lowerQuery.includes('programming')) {
+          courseToAdd = availableCourses.find(c => c.code === 'CS201');
+        } else if (lowerQuery.includes('إدارة') || lowerQuery.includes('management')) {
+          courseToAdd = availableCourses.find(c => c.code === 'BUS201');
+        } else {
+          // Add first available course
+          courseToAdd = availableCourses[0];
+        }
+
+        if (courseToAdd) {
+          // Check if already registered
+          const alreadyRegistered = registeredCourses.some(c => c.code === courseToAdd.code);
+          
+          if (alreadyRegistered) {
+            toast.error(language === 'ar' ? 'المقرر مسجل مسبقاً!' : 'Course already registered!');
+            return {
+              response: language === 'ar'
+                ? `❌ المقرر "${courseToAdd.nameAr}" (${courseToAdd.code}) مسجل مسبقاً!\n\nلا يمكن تسجيل نفس المقرر مرتين.`
+                : `❌ Course "${courseToAdd.nameEn}" (${courseToAdd.code}) is already registered!\n\nCannot register the same course twice.`,
+              action: 'error'
+            };
+          }
+
+          // Add course
+          setRegisteredCourses([...registeredCourses, courseToAdd]);
+          toast.success(language === 'ar' ? 'تم إضافة المقرر بنجاح!' : 'Course added successfully!');
+          
+          return {
+            response: language === 'ar'
+              ? `✅ تم بنجاح! أضفت لك المقرر:\n\n📚 ${courseToAdd.nameAr}\n📋 الرمز: ${courseToAdd.code}\n👨‍🏫 الأستاذ: ${courseToAdd.instructor}\n⏰ الوقت: ${courseToAdd.time}\n🏛️ القاعة: ${courseToAdd.room}\n⭐ الساعات: ${courseToAdd.credits}\n\nيمكنك رؤيته الآن في جدولك الدراسي! 🎉`
+              : `✅ Done! I added the course for you:\n\n📚 ${courseToAdd.nameEn}\n📋 Code: ${courseToAdd.code}\n👨‍🏫 Instructor: ${courseToAdd.instructor}\n⏰ Time: ${courseToAdd.time}\n🏛️ Room: ${courseToAdd.room}\n⭐ Credits: ${courseToAdd.credits}\n\nYou can see it now in your schedule! 🎉`,
+            action: 'success'
+          };
+        }
+      }
+
+      // Delete Course Actions
+      if (lowerQuery.includes('احذف') || lowerQuery.includes('حذف') || lowerQuery.includes('delete') || lowerQuery.includes('remove')) {
+        if (registeredCourses.length === 0) {
+          return {
+            response: language === 'ar'
+              ? '❌ لا يوجد مقررات مسجلة للحذف!\n\nيجب أن تسجل مقررات أولاً.'
+              : '❌ No registered courses to delete!\n\nYou need to register courses first.',
+            action: 'error'
+          };
+        }
+
+        // Delete first registered course
+        const courseToDelete = registeredCourses[0];
+        setRegisteredCourses(registeredCourses.filter(c => c.code !== courseToDelete.code));
+        toast.success(language === 'ar' ? 'تم حذف المقرر بنجاح!' : 'Course deleted successfully!');
+        
         return {
           response: language === 'ar'
-            ? 'ℹ️ جدولك الدراسي فارغ حالياً.\n\nلم تسجل أي مقررات بعد. هل تريد تسجيل مقررات؟'
-            : 'ℹ️ Your schedule is currently empty.\n\nYou have not registered any courses yet. Do you want to register courses?',
-          action: 'info'
+            ? `✅ تم حذف المقرر بنجا:\n\n📚 ${courseToDelete.nameAr}\n📋 الرمز: ${courseToDelete.code}\n\nتم إزالته من جدولك الدراسي.`
+            : `✅ Course deleted successfully:\n\n📚 ${courseToDelete.nameEn}\n📋 Code: ${courseToDelete.code}\n\nRemoved from your schedule.`,
+          action: 'success'
         };
       }
 
-      setTimeout(() => setCurrentPage('schedule'), 1000);
-      
-      return {
-        response: language === 'ar'
-          ? `📅 جدولك الدراسي:\n\n${registeredCourses.map((c, i) => 
-            `${i + 1}. ${c.nameAr} (${c.code})\n   ⏰ ${c.time}\n   🏛️ ${c.room}\n`
-          ).join('\n')}\nسأنقلك إلى صفحة الجدول الآن... ⏳`
-          : `📅 Your Schedule:\n\n${registeredCourses.map((c, i) => 
-            `${i + 1}. ${c.nameEn} (${c.code})\n   ⏰ ${c.time}\n   🏛️ ${c.room}\n`
-          ).join('\n')}\nTaking you to schedule page now... ⏳`,
-        action: 'success'
-      };
+      // Show Schedule
+      if (lowerQuery.includes('جدول') || lowerQuery.includes('schedule')) {
+        if (registeredCourses.length === 0) {
+          return {
+            response: language === 'ar'
+              ? 'ℹ️ جدولك الدراسي فارغ حالياً.\n\nلم تسجل أي مقررات بعد. هل تريد تسجيل مقررات؟'
+              : 'ℹ️ Your schedule is currently empty.\n\nYou have not registered any courses yet. Do you want to register courses?',
+            action: 'info'
+          };
+        }
+
+        setTimeout(() => setCurrentPage('schedule'), 1000);
+        
+        return {
+          response: language === 'ar'
+            ? `📅 جدولك الدراسي:\n\n${registeredCourses.map((c, i) => 
+              `${i + 1}. ${c.nameAr} (${c.code})\n   ⏰ ${c.time}\n   🏛️ ${c.room}\n`
+            ).join('\n')}\nسأنقلك إلى صفحة الجدول الآن... ⏳`
+            : `📅 Your Schedule:\n\n${registeredCourses.map((c, i) => 
+              `${i + 1}. ${c.nameEn} (${c.code})\n   ⏰ ${c.time}\n   🏛️ ${c.room}\n`
+            ).join('\n')}\nTaking you to schedule page now... ⏳`,
+          action: 'success'
+        };
+      }
     }
 
     // Navigate to Pages
@@ -437,17 +575,17 @@ export const AssistantPage: React.FC = () => {
               {language === 'ar' ? 'أوامر سريعة' : 'Quick Commands'}
             </h3>
             <div className="space-y-3">
-              {quickQuestions.map((q, index) => {
+              {quickQuestionsMap[userRole][language].map((q, index) => {
                 const Icon = q.icon;
                 return (
                   <Button
                     key={index}
                     variant="outline"
                     className="w-full justify-start text-left h-auto py-4 hover:bg-white dark:hover:bg-gray-800 hover:scale-105 transition-transform"
-                    onClick={() => handleSendMessage(language === 'ar' ? q.ar : q.en)}
+                    onClick={() => handleSendMessage(q.text)}
                   >
                     <Icon className="w-5 h-5 mr-3 text-purple-600 flex-shrink-0" />
-                    <span>{language === 'ar' ? q.ar : q.en}</span>
+                    <span>{q.text}</span>
                   </Button>
                 );
               })}
@@ -460,36 +598,106 @@ export const AssistantPage: React.FC = () => {
               {language === 'ar' ? 'ما يمكنني فعله' : 'What I Can Do'}
             </h3>
             <ul className="space-y-3 text-sm">
-              <li className="flex items-start gap-2">
-                <span className="text-green-600">✅</span>
-                {language === 'ar' 
-                  ? 'إضافة مقررات إلى جدولك فعلياً'
-                  : 'Actually add courses to your schedule'}
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-green-600">✅</span>
-                {language === 'ar' 
-                  ? 'حذف مقررات من جدولك'
-                  : 'Delete courses from your schedule'}
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-green-600">✅</span>
-                {language === 'ar' 
-                  ? 'عرض جدولك ومقرراتك'
-                  : 'Show your schedule and courses'}
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-green-600">✅</span>
-                {language === 'ar' 
-                  ? 'التنقل بين الصفحات'
-                  : 'Navigate between pages'}
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-green-600">✅</span>
-                {language === 'ar' 
-                  ? 'البحث عن المقررات المتاحة'
-                  : 'Search for available courses'}
-              </li>
+              {userRole === 'supervisor' ? (
+                <>
+                  <li className="flex items-start gap-2">
+                    <span className="text-green-600">✅</span>
+                    {language === 'ar' 
+                      ? 'مراجعة طلبات الطلاب المعلقة'
+                      : 'Review pending student requests'}
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-green-600">✅</span>
+                    {language === 'ar' 
+                      ? 'الموافقة أو رفض طلبات التسجيل'
+                      : 'Approve or reject registration requests'}
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-green-600">✅</span>
+                    {language === 'ar' 
+                      ? 'عرض معلومات الطلاب المشرف عليهم'
+                      : 'View supervised students information'}
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-green-600">✅</span>
+                    {language === 'ar' 
+                      ? 'التنقل بين صفحات النظام'
+                      : 'Navigate between system pages'}
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-green-600">✅</span>
+                    {language === 'ar' 
+                      ? 'عرض التقارير الأكاديمية'
+                      : 'View academic reports'}
+                  </li>
+                </>
+              ) : userRole === 'admin' ? (
+                <>
+                  <li className="flex items-start gap-2">
+                    <span className="text-green-600">✅</span>
+                    {language === 'ar' 
+                      ? 'عرض إحصائيات النظام الشاملة'
+                      : 'View comprehensive system statistics'}
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-green-600">✅</span>
+                    {language === 'ar' 
+                      ? 'إدارة جميع الطلاب والمشرفين'
+                      : 'Manage all students and supervisors'}
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-green-600">✅</span>
+                    {language === 'ar' 
+                      ? 'مراقبة طلبات التسجيل'
+                      : 'Monitor registration requests'}
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-green-600">✅</span>
+                    {language === 'ar' 
+                      ? 'إدارة الأقسام والمقررات'
+                      : 'Manage departments and courses'}
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-green-600">✅</span>
+                    {language === 'ar' 
+                      ? 'الوصول لجميع التقارير الإدارية'
+                      : 'Access all administrative reports'}
+                  </li>
+                </>
+              ) : (
+                <>
+                  <li className="flex items-start gap-2">
+                    <span className="text-green-600">✅</span>
+                    {language === 'ar' 
+                      ? 'إضافة مقررات إلى جدولك فعلياً'
+                      : 'Actually add courses to your schedule'}
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-green-600">✅</span>
+                    {language === 'ar' 
+                      ? 'حذف مقررات من جدولك'
+                      : 'Delete courses from your schedule'}
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-green-600">✅</span>
+                    {language === 'ar' 
+                      ? 'عرض جدولك ومقرراتك'
+                      : 'Show your schedule and courses'}
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-green-600">✅</span>
+                    {language === 'ar' 
+                      ? 'التنقل بين الصفحات'
+                      : 'Navigate between pages'}
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-green-600">✅</span>
+                    {language === 'ar' 
+                      ? 'البحث عن المقررات المتاحة'
+                      : 'Search for available courses'}
+                  </li>
+                </>
+              )}
             </ul>
           </Card>
 
@@ -499,18 +707,52 @@ export const AssistantPage: React.FC = () => {
               {language === 'ar' ? 'أمثلة على الأوامر' : 'Command Examples'}
             </h3>
             <ul className="space-y-2 text-sm">
-              <li className="p-2 bg-white dark:bg-gray-800 rounded">
-                💬 {language === 'ar' ? 'أضف مقرر قواعد البيانات' : 'Add database course'}
-              </li>
-              <li className="p-2 bg-white dark:bg-gray-800 rounded">
-                💬 {language === 'ar' ? 'احذف المقرر الأول' : 'Delete first course'}
-              </li>
-              <li className="p-2 bg-white dark:bg-gray-800 rounded">
-                💬 {language === 'ar' ? 'اعرض جدولي الدراسي' : 'Show my schedule'}
-              </li>
-              <li className="p-2 bg-white dark:bg-gray-800 rounded">
-                💬 {language === 'ar' ? 'اذهب إلى التقارير' : 'Go to reports'}
-              </li>
+              {userRole === 'supervisor' ? (
+                <>
+                  <li className="p-2 bg-white dark:bg-gray-800 rounded">
+                    💬 {language === 'ar' ? 'عرض طلبات الطلاب المعلقة' : 'Show pending student requests'}
+                  </li>
+                  <li className="p-2 bg-white dark:bg-gray-800 rounded">
+                    💬 {language === 'ar' ? 'اذهب إلى صفحة الطلبات' : 'Go to requests page'}
+                  </li>
+                  <li className="p-2 bg-white dark:bg-gray-800 rounded">
+                    💬 {language === 'ar' ? 'عرض معلومات الطلاب' : 'Show students information'}
+                  </li>
+                  <li className="p-2 bg-white dark:bg-gray-800 rounded">
+                    💬 {language === 'ar' ? 'اذهب إلى التقارير' : 'Go to reports'}
+                  </li>
+                </>
+              ) : userRole === 'admin' ? (
+                <>
+                  <li className="p-2 bg-white dark:bg-gray-800 rounded">
+                    💬 {language === 'ar' ? 'عرض إحصائيات النظام' : 'Show system statistics'}
+                  </li>
+                  <li className="p-2 bg-white dark:bg-gray-800 rounded">
+                    💬 {language === 'ar' ? 'عرض جميع الطلاب' : 'Show all students'}
+                  </li>
+                  <li className="p-2 bg-white dark:bg-gray-800 rounded">
+                    💬 {language === 'ar' ? 'اذهب إلى لوحة التحكم' : 'Go to admin dashboard'}
+                  </li>
+                  <li className="p-2 bg-white dark:bg-gray-800 rounded">
+                    💬 {language === 'ar' ? 'عرض تقارير المشرفين' : 'Show supervisor reports'}
+                  </li>
+                </>
+              ) : (
+                <>
+                  <li className="p-2 bg-white dark:bg-gray-800 rounded">
+                    💬 {language === 'ar' ? 'أضف مقرر قواعد البيانات' : 'Add database course'}
+                  </li>
+                  <li className="p-2 bg-white dark:bg-gray-800 rounded">
+                    💬 {language === 'ar' ? 'احذف المقرر الأول' : 'Delete first course'}
+                  </li>
+                  <li className="p-2 bg-white dark:bg-gray-800 rounded">
+                    💬 {language === 'ar' ? 'اعرض جدولي الدراسي' : 'Show my schedule'}
+                  </li>
+                  <li className="p-2 bg-white dark:bg-gray-800 rounded">
+                    💬 {language === 'ar' ? 'اذهب إلى التقارير' : 'Go to reports'}
+                  </li>
+                </>
+              )}
             </ul>
           </Card>
         </div>

@@ -66,35 +66,102 @@ export const CurriculumPage: React.FC = () => {
       setLoading(true);
       console.log('🔍 [Curriculum] Fetching curriculum from backend...');
       
-      const result = await fetchJSON(
-        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/curriculum?department=MIS`,
-        {
-          headers: {
-            Authorization: `Bearer ${publicAnonKey}`,
-          },
-          timeout: 10000, // 10 seconds timeout
+      let curriculumLoaded = false;
+
+      // ✅ Try backend first
+      try {
+        const result = await fetchJSON(
+          `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/curriculum?department=MIS`,
+          {
+            headers: {
+              Authorization: `Bearer ${publicAnonKey}`,
+            },
+            timeout: 10000,
+          }
+        );
+
+        console.log('📚 [Curriculum] Backend response:', result);
+
+        if (result.success) {
+          const mappedData = {
+            department: result.department?.code || 'MIS',
+            curriculum: result.coursesByLevel || {},
+            levelSummary: result.levelSummary || [],
+            totalCourses: result.totalCourses || 0,
+            totalCreditHours: result.totalCreditHours || 0,
+          };
+          setCurriculumData(mappedData);
+          console.log('✅ [Curriculum] Loaded from backend:', mappedData.totalCourses, 'courses');
+          curriculumLoaded = true;
         }
-      );
+      } catch (backendError) {
+        console.log('🔄 [Curriculum] Backend offline, using localStorage');
+      }
 
-      console.log('📚 [Curriculum] Response:', result);
+      // ✅ Fallback to localStorage
+      if (!curriculumLoaded) {
+        console.log('💾 [Curriculum] Building curriculum from localStorage...');
+        
+        // Get all courses from predefinedCourses (imported at top)
+        const { predefinedCourses } = await import('./predefinedCourses');
+        
+        // ✅ Check if predefinedCourses exists and is an array
+        if (!predefinedCourses || !Array.isArray(predefinedCourses)) {
+          console.warn('⚠️ [Curriculum] predefinedCourses is not available');
+          setCurriculumData({
+            department: 'MIS',
+            curriculum: {},
+            levelSummary: [],
+            totalCourses: 0,
+            totalCreditHours: 0,
+          });
+          return;
+        }
+        
+        // Group courses by level
+        const coursesByLevel: Record<number, Course[]> = {};
+        const levelSummary: Array<{ level: number; courses: number; credits: number }> = [];
+        
+        predefinedCourses.forEach((course: any) => {
+          const level = course.level || 1;
+          if (!coursesByLevel[level]) {
+            coursesByLevel[level] = [];
+          }
+          coursesByLevel[level].push({
+            course_id: course.course_id,
+            code: course.code,
+            name_ar: course.name_ar,
+            name_en: course.name_en,
+            credit_hours: course.credit_hours,
+            level: course.level,
+            department_id: course.department_id,
+            type: course.type,
+            description_ar: course.description_ar,
+            description_en: course.description_en,
+          });
+        });
 
-      if (result.success) {
-        // Map coursesByLevel to curriculum for compatibility
-        const mappedData = {
-          department: result.department?.code || 'MIS',
-          curriculum: result.coursesByLevel || {},
-          levelSummary: result.levelSummary || [],
-          totalCourses: result.totalCourses || 0,
-          totalCreditHours: result.totalCreditHours || 0,
+        // Calculate level summaries
+        Object.keys(coursesByLevel).forEach((levelKey) => {
+          const level = parseInt(levelKey);
+          const courses = coursesByLevel[level];
+          const credits = courses.reduce((sum, c) => sum + c.credit_hours, 0);
+          levelSummary.push({ level, courses: courses.length, credits });
+        });
+
+        const totalCourses = predefinedCourses.length;
+        const totalCreditHours = predefinedCourses.reduce((sum: number, c: any) => sum + c.credit_hours, 0);
+
+        const localCurriculum: CurriculumData = {
+          department: 'MIS',
+          curriculum: coursesByLevel,
+          levelSummary: levelSummary.sort((a, b) => a.level - b.level),
+          totalCourses,
+          totalCreditHours,
         };
-        setCurriculumData(mappedData);
-        console.log('✅ [Curriculum] Loaded successfully:', mappedData.totalCourses, 'courses');
-      } else {
-        console.warn('⚠️ [Curriculum] No curriculum data returned');
-        setCurriculumData(null);
-        if (result.error) {
-          throw new Error(result.error);
-        }
+
+        setCurriculumData(localCurriculum);
+        console.log('✅ [Curriculum] Built from localStorage:', totalCourses, 'courses');
       }
     } catch (error: any) {
       console.error('❌ [Curriculum] Error fetching curriculum:', error);

@@ -119,10 +119,20 @@ export const calculateAcademicStats = (
  * إنشاء التنبيهات الأكاديمية الذكية
  */
 export const generateAcademicAlerts = (
-  stats: AcademicStats,
   registrations: CourseRegistration[],
-  studentLevel: number = 1
+  studentLevel: number = 1,
+  studentGPA: number = 0,
+  language: 'ar' | 'en' = 'ar'
 ): AcademicAlert[] => {
+  // ✅ التحقق من أن registrations هو array
+  if (!Array.isArray(registrations)) {
+    console.warn('⚠️ [generateAcademicAlerts] registrations is not an array:', registrations);
+    return [];
+  }
+
+  // حساب الإحصائيات أولاً
+  const stats = calculateAcademicStats(registrations, studentLevel, studentGPA);
+  
   const alerts: AcademicAlert[] = [];
   const now = new Date();
 

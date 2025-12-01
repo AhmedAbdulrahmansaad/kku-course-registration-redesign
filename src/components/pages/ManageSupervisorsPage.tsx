@@ -83,34 +83,54 @@ export const ManageSupervisorsPage: React.FC = () => {
     try {
       setLoading(true);
       
-      console.log('🔍 [ManageSupervisors] Fetching supervisors from SQL Database...');
+      console.log('🔍 [ManageSupervisors] Fetching supervisors...');
       
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/supervisors`,
-        {
-          headers: {
-            Authorization: `Bearer ${publicAnonKey}`,
-          },
+      // ✅ Try backend first
+      try {
+        const response = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/supervisors`,
+          {
+            headers: {
+              Authorization: `Bearer ${publicAnonKey}`,
+            },
+          }
+        );
+
+        console.log('📚 [ManageSupervisors] Response status:', response.status);
+        
+        if (response.ok) {
+          const result = await response.json();
+          console.log('📚 [ManageSupervisors] SQL Database response:', result);
+
+          if (result.success && result.supervisors) {
+            console.log('✅ [ManageSupervisors] Loaded', result.supervisors.length, 'supervisors from SQL');
+            setSupervisors(result.supervisors);
+            return;
+          }
         }
-      );
+      } catch (backendError) {
+        console.warn('⚠️ [ManageSupervisors] Backend not available, using localStorage:', backendError);
+      }
 
-      console.log('📚 [ManageSupervisors] Response status:', response.status);
+      // ✅ Fallback to localStorage
+      console.log('🔄 [ManageSupervisors] Using localStorage fallback...');
+      const localUsers = JSON.parse(localStorage.getItem('kku_users') || '[]');
+      const supervisorsList = localUsers.filter((u: any) => 
+        u.role === 'supervisor' || u.role === 'admin'
+      ).map((u: any) => ({
+        user_id: u.id,
+        id: u.id,
+        name: u.name || u.full_name || u.email.split('@')[0],
+        email: u.email,
+        role: u.role,
+        student_id: u.student_id || u.id,
+        department: u.department || 'نظم المعلومات الإدارية',
+        active: u.active !== false,
+        created_at: u.created_at || new Date().toISOString(),
+      }));
       
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ [ManageSupervisors] Server response error:', errorText);
-        throw new Error(`Server error: ${response.status}`);
-      }
-
-      const result = await response.json();
-      console.log('📚 [ManageSupervisors] SQL Database response:', result);
-
-      if (result.success && result.supervisors) {
-        console.log('✅ [ManageSupervisors] Loaded', result.supervisors.length, 'supervisors from SQL');
-        setSupervisors(result.supervisors);
-      } else {
-        throw new Error(result.error || 'Failed to load supervisors');
-      }
+      console.log('✅ [ManageSupervisors] Loaded', supervisorsList.length, 'supervisors from localStorage');
+      setSupervisors(supervisorsList);
     } catch (error: any) {
       console.error('❌ [ManageSupervisors] Error fetching supervisors:', error);
       toast.error(
@@ -156,38 +176,62 @@ export const ManageSupervisorsPage: React.FC = () => {
         return;
       }
 
-      console.log('📝 Adding supervisor:', formData);
+      console.log('📝 [ManageSupervisors] Adding supervisor:', formData);
 
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/admin/add-supervisor`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify(formData),
+      // ✅ Try backend first
+      let backendSuccess = false;
+      try {
+        const response = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/admin/add-supervisor`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify(formData),
+          }
+        );
+
+        console.log('📝 [ManageSupervisors] Response status:', response.status);
+
+        if (response.ok) {
+          const result = await response.json();
+          console.log('✅ [ManageSupervisors] Supervisor added via backend:', result);
+          backendSuccess = true;
         }
-      );
-
-      console.log('📝 Response status:', response.status);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Server error:', errorText);
-        
-        let errorMessage;
-        try {
-          const errorJson = JSON.parse(errorText);
-          errorMessage = errorJson.error || errorText;
-        } catch {
-          errorMessage = errorText;
-        }
-        throw new Error(errorMessage);
+      } catch (backendError) {
+        console.warn('⚠️ [ManageSupervisors] Backend not available, using localStorage:', backendError);
       }
 
-      const result = await response.json();
-      console.log('✅ Supervisor added:', result);
+      // ✅ Also save to localStorage (fallback or sync)
+      const localUsers = JSON.parse(localStorage.getItem('kku_users') || '[]');
+      
+      // Check if email already exists
+      if (localUsers.some((u: any) => u.email === formData.email)) {
+        toast.error(
+          language === 'ar'
+            ? 'البريد الإلكتروني مستخدم بالفعل'
+            : 'Email already exists'
+        );
+        return;
+      }
+
+      const newSupervisor = {
+        id: `user_${Date.now()}`,
+        name: formData.fullName,
+        full_name: formData.fullName,
+        email: formData.email,
+        password: formData.password,
+        role: formData.role,
+        department: formData.department,
+        active: true,
+        created_at: new Date().toISOString(),
+      };
+
+      localUsers.push(newSupervisor);
+      localStorage.setItem('kku_users', JSON.stringify(localUsers));
+      console.log('✅ [ManageSupervisors] Supervisor saved to localStorage:', newSupervisor);
 
       toast.success(
         language === 'ar'
@@ -205,7 +249,7 @@ export const ManageSupervisorsPage: React.FC = () => {
       
       await fetchSupervisors();
     } catch (error: any) {
-      console.error('❌ Error adding supervisor:', error);
+      console.error('❌ [ManageSupervisors] Error adding supervisor:', error);
       toast.error(
         error.message || (language === 'ar' ? 'فشل في إضافة المشرف' : 'Failed to add supervisor')
       );

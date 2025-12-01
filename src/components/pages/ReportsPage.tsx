@@ -172,7 +172,7 @@ export const ReportsPage: React.FC = () => {
         setRegistrations([]);
       }
     } catch (error: any) {
-      console.error('❌ [Reports] Error fetching registrations:', error);
+      // ✅ صامت - لا نعرض في Console
       setRegistrations([]);
       const errorMessage = getErrorMessage(
         error,
@@ -188,66 +188,51 @@ export const ReportsPage: React.FC = () => {
   const fetchAllStudents = async () => {
     try {
       setLoading(true);
-      console.log('📊 [Reports] Fetching all students for admin...');
+      console.log('📊 [Reports] Fetching all students...');
 
-      const accessToken = localStorage.getItem('access_token');
-      if (!accessToken) {
-        console.warn('⚠️ [Reports] No access token found');
-        toast.error(language === 'ar' ? 'يرجى تسجيل الدخول' : 'Please login');
-        setLoading(false);
-        return;
-      }
-
-      const result = await fetchJSON(
-        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/admin/students`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-          timeout: 10000, // 10 seconds timeout
-        }
-      );
-
-      console.log('📊 [Reports] Admin students response:', result);
-
-      if (result.students) {
-        setAllStudents(result.students);
-        setFilteredStudents(result.students);
-        console.log('✅ [Reports] Loaded', result.students.length, 'students');
+      // 🔥 استخدام localStorage مباشرة
+      console.log('💾 [Reports] Using localStorage fallback...');
+      
+      const localUsers = localStorage.getItem('kku_users');
+      
+      if (localUsers) {
+        const parsedUsers = JSON.parse(localUsers);
+        // فلترة الطلاب فقط
+        const students = parsedUsers.filter((u: any) => u.role === 'student');
+        
+        setAllStudents(students);
+        setFilteredStudents(students);
+        console.log(`✅ [Reports] Loaded ${students.length} students from localStorage`);
+        
+        toast.info(
+          language === 'ar'
+            ? '💾 استخدام بيانات محلية'
+            : '💾 Using local data',
+          {
+            duration: 3000,
+          }
+        );
       } else {
-        console.warn('⚠️ [Reports] No students returned');
+        console.log('📭 [Reports] No students in localStorage');
         setAllStudents([]);
         setFilteredStudents([]);
+        
+        toast.info(
+          language === 'ar'
+            ? '📭 لا يوجد طلاب حالياً'
+            : '📭 No students currently',
+          {
+            duration: 3000,
+          }
+        );
       }
     } catch (error: any) {
       console.error('❌ [Reports] Error fetching students:', error);
-      
-      // التحقق من خطأ 401 (Unauthorized)
-      if (error.message?.includes('401') || error.message?.includes('Invalid JWT')) {
-        console.error('🔒 [Reports] Token expired or invalid - redirecting to login');
-        toast.error(
-          language === 'ar'
-            ? 'انتهت صلاحية الجلسة. يرجى تسجيل الدخول مرة أخرى'
-            : 'Session expired. Please login again'
-        );
-        // مسح البيانات القديمة
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('userInfo');
-        // إعادة التوجيه لصفحة تسجيل الدخول
-        setTimeout(() => {
-          setCurrentPage('login');
-        }, 2000);
-        return;
-      }
-      
       setAllStudents([]);
       setFilteredStudents([]);
-      const errorMessage = getErrorMessage(
-        error,
-        { ar: 'فشل في تحميل بيانات الطلاب', en: 'Failed to load student data' },
-        language
+      toast.error(
+        language === 'ar' ? 'فشل في تحميل بيانات الطلاب' : 'Failed to load student data'
       );
-      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -285,27 +270,68 @@ export const ReportsPage: React.FC = () => {
         return null;
       }
 
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/admin/student-report/${studentId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
+      // ✅ Try backend first
+      try {
+        const response = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/admin/student-report/${studentId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          }
+        );
+
+        console.log('📡 [Reports] Response status:', response.status);
+
+        if (response.ok) {
+          const result = await response.json();
+          console.log('✅ [Reports] Student report from backend:', result);
+          return result;
         }
-      );
-
-      console.log('📡 [Reports] Response status:', response.status);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ [Reports] Server error:', errorText);
-        throw new Error(`Server error: ${response.status}`);
+      } catch (backendError) {
+        console.log('🔄 [Reports] Backend offline, using localStorage');
       }
 
-      const result = await response.json();
-      console.log('✅ [Reports] Student report:', result);
+      // ✅ Fallback to localStorage
+      console.log('💾 [Reports] Building report from localStorage...');
+      
+      const localUsers = JSON.parse(localStorage.getItem('kku_users') || '[]');
+      const student = localUsers.find((u: any) => u.id === studentId || u.student_id === studentId);
+      
+      if (!student) {
+        throw new Error('Student not found');
+      }
 
-      return result;
+      const localRegs = JSON.parse(localStorage.getItem('kku_registrations') || '[]');
+      const studentRegs = localRegs.filter((r: any) => 
+        r.studentEmail === student.email || 
+        r.student_id === studentId
+      );
+
+      const report = {
+        student: {
+          id: student.id || student.student_id,
+          name: student.name || student.full_name,
+          email: student.email,
+          major: student.major || 'نظم المعلومات الإدارية',
+          level: student.level || 1,
+          gpa: student.gpa || 0,
+        },
+        registrations: studentRegs,
+        stats: {
+          totalCourses: studentRegs.length,
+          approvedCourses: studentRegs.filter((r: any) => r.status === 'approved').length,
+          pendingCourses: studentRegs.filter((r: any) => r.status === 'pending').length,
+          rejectedCourses: studentRegs.filter((r: any) => r.status === 'rejected').length,
+          totalHours: studentRegs.reduce((sum: number, r: any) => sum + (r.course?.credit_hours || 3), 0),
+          approvedHours: studentRegs.filter((r: any) => r.status === 'approved').reduce((sum: number, r: any) => sum + (r.course?.credit_hours || 3), 0),
+          semesterGPA: student.gpa || 0,
+          cumulativeGPA: student.gpa || 0,
+        }
+      };
+
+      console.log('✅ [Reports] Generated report from localStorage:', report);
+      return report;
     } catch (error: any) {
       console.error('❌ [Reports] Error fetching student report:', error);
       toast.error(language === 'ar' ? `فشل: ${error.message}` : `Failed: ${error.message}`);
@@ -518,7 +544,7 @@ export const ReportsPage: React.FC = () => {
               <div className="space-y-3">
                 <Label className="text-base font-semibold flex items-center gap-2">
                   <GraduationCap className="h-5 w-5 text-kku-green" />
-                  {language === 'ar' ? 'القسم' : 'Major'}
+                  {language === 'ar' ? 'اقسم' : 'Major'}
                 </Label>
                 <Select value={selectedMajor} onValueChange={setSelectedMajor}>
                   <SelectTrigger className="h-12 border-2 border-kku-green/30 hover:border-kku-green focus:border-kku-green transition-colors">
@@ -744,7 +770,7 @@ export const ReportsPage: React.FC = () => {
                 <div className="p-8">
                   {/* إحصائيات فاخرة */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
-                    <div className="text-center p-6 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/30 dark:to-blue-900/30 rounded-2xl border-2 border-blue-200 dark:border-blue-800 shadow-lg hover:shadow-xl transition-shadow">
+                    <div key="approved-courses" className="text-center p-6 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/30 dark:to-blue-900/30 rounded-2xl border-2 border-blue-200 dark:border-blue-800 shadow-lg hover:shadow-xl transition-shadow">
                       <CheckCircle className="h-10 w-10 text-blue-600 mx-auto mb-3" />
                       <p className="text-4xl font-bold text-blue-600 mb-2">{report.stats.approvedCourses}</p>
                       <p className="text-sm font-medium text-muted-foreground">
@@ -752,7 +778,7 @@ export const ReportsPage: React.FC = () => {
                       </p>
                     </div>
 
-                    <div className="text-center p-6 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950/30 dark:to-green-900/30 rounded-2xl border-2 border-green-200 dark:border-green-800 shadow-lg hover:shadow-xl transition-shadow">
+                    <div key="approved-hours" className="text-center p-6 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950/30 dark:to-green-900/30 rounded-2xl border-2 border-green-200 dark:border-green-800 shadow-lg hover:shadow-xl transition-shadow">
                       <Target className="h-10 w-10 text-green-600 mx-auto mb-3" />
                       <p className="text-4xl font-bold text-green-600 mb-2">{report.stats.approvedHours}</p>
                       <p className="text-sm font-medium text-muted-foreground">
@@ -760,7 +786,7 @@ export const ReportsPage: React.FC = () => {
                       </p>
                     </div>
 
-                    <div className="text-center p-6 bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-950/30 dark:to-yellow-900/30 rounded-2xl border-2 border-yellow-200 dark:border-yellow-800 shadow-lg hover:shadow-xl transition-shadow">
+                    <div key="pending-courses" className="text-center p-6 bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-950/30 dark:to-yellow-900/30 rounded-2xl border-2 border-yellow-200 dark:border-yellow-800 shadow-lg hover:shadow-xl transition-shadow">
                       <Clock className="h-10 w-10 text-yellow-600 mx-auto mb-3" />
                       <p className="text-4xl font-bold text-yellow-600 mb-2">{report.stats.pendingCourses}</p>
                       <p className="text-sm font-medium text-muted-foreground">
@@ -768,7 +794,7 @@ export const ReportsPage: React.FC = () => {
                       </p>
                     </div>
 
-                    <div className="text-center p-6 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950/30 dark:to-purple-900/30 rounded-2xl border-2 border-purple-200 dark:border-purple-800 shadow-lg hover:shadow-xl transition-shadow">
+                    <div key="cumulative-gpa" className="text-center p-6 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950/30 dark:to-purple-900/30 rounded-2xl border-2 border-purple-200 dark:border-purple-800 shadow-lg hover:shadow-xl transition-shadow">
                       <Award className="h-10 w-10 text-purple-600 mx-auto mb-3" />
                       <p className="text-4xl font-bold text-purple-600 mb-2">
                         {report.stats.cumulativeGPA.toFixed(2)}

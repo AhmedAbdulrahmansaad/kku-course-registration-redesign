@@ -31,11 +31,13 @@ import { ManageCoursesPage } from './components/pages/ManageCoursesPage';
 import { ManageStudentsPage } from './components/pages/ManageStudentsPage';
 import { ManageSupervisorsPage } from './components/pages/ManageSupervisorsPage';
 import { SystemSettingsPage } from './components/pages/SystemSettingsPage';
+import { SystemToolsPage } from './components/pages/SystemToolsPage';
 import { MessagesPage } from './components/pages/MessagesPage';
 import { AnnouncementsPage } from './components/pages/AnnouncementsPage';
 import { AccessAgreementPage } from './components/pages/AccessAgreementPage';
 import { TranscriptPage } from './components/pages/TranscriptPage';
 import { SystemSetupPage } from './components/pages/SystemSetupPage';
+import { CleanupPage } from './components/pages/CleanupPage';
 import { Toaster } from './components/ui/sonner';
 import { ArrowLeft, ArrowRight, Home } from 'lucide-react';
 import { Button } from './components/ui/button';
@@ -50,6 +52,9 @@ const AppContent: React.FC = () => {
     
     // صفحة إعداد النظام (عامة - للتهيئة الأولية)
     systemSetup: { component: <SystemSetupPage />, public: true },
+    
+    // صفحة تنظيف المستخدمين اليتامى (عامة)
+    cleanup: { component: <CleanupPage />, public: true },
     
     // صفحات عامة (لا تحتاج تسجيل دخول)
     home: { component: <HomePage />, public: true },
@@ -138,6 +143,11 @@ const AppContent: React.FC = () => {
     },
     systemSettings: {
       component: <SystemSettingsPage />,
+      requireAuth: true,
+      allowedRoles: ['admin'],
+    },
+    systemTools: {
+      component: <SystemToolsPage />,
       requireAuth: true,
       allowedRoles: ['admin'],
     },
