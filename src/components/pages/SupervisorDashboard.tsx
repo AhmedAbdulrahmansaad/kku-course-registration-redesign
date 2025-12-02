@@ -61,40 +61,41 @@ export const SupervisorDashboard: React.FC = () => {
 
   const fetchRegistrations = async () => {
     try {
-      console.log('📚 [SupervisorDashboard] Fetching registrations...');
+      console.log('📚 [SupervisorDashboard] Fetching registrations from SQL Database...');
       
-      let registrationsData: any[] = [];
-
-      // ✅ Try backend first
-      try {
-        const response = await fetch(
-          `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/registrations?status=pending`,
-          {
-            headers: {
-              Authorization: `Bearer ${publicAnonKey}`,
-            },
-          }
-        );
-
-        const result = await response.json();
-
-        if (response.ok && result.success) {
-          console.log('✅ [SupervisorDashboard] Loaded', result.registrations.length, 'registrations from backend');
-          registrationsData = result.registrations || [];
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/registrations?status=pending`,
+        {
+          headers: {
+            Authorization: `Bearer ${publicAnonKey}`,
+          },
         }
-      } catch (backendError) {
-        console.log('🔄 [SupervisorDashboard] Backend offline, using localStorage');
-      }
+      );
 
-      // ✅ Fallback to localStorage
-      if (registrationsData.length === 0) {
-        const localRegs = JSON.parse(localStorage.getItem('kku_registrations') || '[]');
-        registrationsData = localRegs.filter((reg: any) => reg.status === 'pending');
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        console.log('✅ [SupervisorDashboard] Loaded', result.registrations.length, 'registrations from SQL');
         
-        console.log('✅ [SupervisorDashboard] Loaded', registrationsData.length, 'pending registrations from localStorage');
+        // ✅ طباعة بيانات الطلاب للتحقق
+        result.registrations.forEach((reg: any, index: number) => {
+          if (index < 3) { // طباعة أول 3 فقط لتجنب الفوضى
+            console.log(`📋 [SupervisorDashboard] Registration ${index + 1}:`, {
+              registration_id: reg.registration_id,
+              student_name: reg.student?.full_name,
+              student_major: reg.student?.major,
+              student_level: reg.student?.level,
+              student_gpa: reg.student?.gpa,
+              course_id: reg.course_id,
+              status: reg.status
+            });
+          }
+        });
+        
+        setRegistrations(result.registrations || []);
+      } else {
+        throw new Error(result.error || 'Failed to load registrations');
       }
-      
-      setRegistrations(registrationsData);
     } catch (error: any) {
       console.error('❌ [SupervisorDashboard] Error fetching registrations:', error);
       toast.error(

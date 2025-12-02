@@ -98,36 +98,34 @@ export const UnifiedNotificationsDropdown: React.FC = () => {
       const accessToken = localStorage.getItem('access_token');
       if (!accessToken || !userInfo) return;
 
-      // 🔥 FALLBACK: محاولة Backend أولاً
-      try {
-        const response = await fetch(
-          `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/student/notifications`,
-          {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-            },
-          }
-        );
-
-        if (response.ok) {
-          const result = await response.json();
-          const newNotifications = result.notifications || [];
-          setNotifications(newNotifications);
-          const newUnreadCount = newNotifications.filter((n: Notification) => !n.read).length;
-          setUnreadCount(newUnreadCount);
-          return;
-        }
-      } catch (fetchError) {
-        // ✅ صامت - لا نعرض أي شيء
+      // Determine endpoint based on user role
+      let endpoint = '';
+      if (userInfo.role === 'student' || !userInfo.role) {
+        endpoint = '/student/notifications';
+      } else if (userInfo.role === 'supervisor') {
+        endpoint = '/supervisor/notifications';
+      } else if (userInfo.role === 'admin') {
+        endpoint = '/admin/notifications';
       }
 
-      // 🔥 FALLBACK: استخدام بيانات محلية فارغة
-      setNotifications([]);
-      setUnreadCount(0);
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a${endpoint}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      if (response.ok) {
+        const result = await response.json();
+        const newNotifications = result.notifications || [];
+        setNotifications(newNotifications);
+        const newUnreadCount = newNotifications.filter((n: Notification) => !n.read).length;
+        setUnreadCount(newUnreadCount);
+      }
     } catch (error) {
-      // ✅ صامت - لا نعرض أي شيء
-      setNotifications([]);
-      setUnreadCount(0);
+      console.error('Error fetching notifications:', error);
     }
   };
 

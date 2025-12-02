@@ -36,8 +36,6 @@ CREATE TABLE IF NOT EXISTS users (
   role VARCHAR(20) DEFAULT 'student' CHECK (role IN ('student', 'supervisor', 'admin')),
   department_id INTEGER REFERENCES departments(id),
   active BOOLEAN DEFAULT TRUE,
-  agreement_accepted BOOLEAN DEFAULT FALSE,
-  agreement_accepted_at TIMESTAMP,
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
 );
@@ -141,34 +139,6 @@ CREATE INDEX IF NOT EXISTS idx_offerings_course_id ON course_offerings(course_id
 CREATE INDEX IF NOT EXISTS idx_offerings_semester ON course_offerings(semester, year);
 
 -- ========================================
--- 8️⃣ جدول تسجيل الطلاب في المقررات (Enrollments)
--- ========================================
-CREATE TABLE IF NOT EXISTS enrollments (
-  id SERIAL PRIMARY KEY,
-  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  course_id INTEGER NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
-  semester VARCHAR(20) NOT NULL,
-  year INTEGER NOT NULL,
-  status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'completed', 'withdrawn')),
-  grade VARCHAR(5),
-  grade_point NUMERIC(3, 2),
-  supervisor_id INTEGER REFERENCES users(id),
-  registered_at TIMESTAMP DEFAULT NOW(),
-  approved_at TIMESTAMP,
-  completed_at TIMESTAMP,
-  notes TEXT,
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW(),
-  UNIQUE(user_id, course_id, semester, year)
-);
-
--- إنشاء Index
-CREATE INDEX IF NOT EXISTS idx_enrollments_user_id ON enrollments(user_id);
-CREATE INDEX IF NOT EXISTS idx_enrollments_course_id ON enrollments(course_id);
-CREATE INDEX IF NOT EXISTS idx_enrollments_status ON enrollments(status);
-CREATE INDEX IF NOT EXISTS idx_enrollments_semester ON enrollments(semester, year);
-
--- ========================================
 -- ✅ تفعيل Row Level Security (RLS)
 -- ========================================
 ALTER TABLE departments ENABLE ROW LEVEL SECURITY;
@@ -178,4 +148,3 @@ ALTER TABLE supervisors ENABLE ROW LEVEL SECURITY;
 ALTER TABLE admins ENABLE ROW LEVEL SECURITY;
 ALTER TABLE courses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE course_offerings ENABLE ROW LEVEL SECURITY;
-ALTER TABLE enrollments ENABLE ROW LEVEL SECURITY;

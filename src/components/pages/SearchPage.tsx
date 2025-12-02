@@ -107,37 +107,29 @@ export const SearchPage: React.FC = () => {
 
   const fetchCourses = async () => {
     try {
-      // ✅ Try backend first
-      try {
-        const response = await fetch(
-          `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/courses?department=MIS`,
-          {
-            headers: {
-              Authorization: `Bearer ${publicAnonKey}`,
-            },
-          }
-        );
-
-        if (response.ok) {
-          const result = await response.json();
-          if (result.courses) {
-            setCourses(result.courses || []);
-            return;
-          }
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/courses?department=MIS`,
+        {
+          headers: {
+            Authorization: `Bearer ${publicAnonKey}`,
+          },
         }
-      } catch {}
+      );
 
-      // ✅ Fallback to localStorage
-      const stored = localStorage.getItem('kku_courses');
-      if (stored) {
-        setCourses(JSON.parse(stored));
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Server response error:', errorText);
+        return;
+      }
+
+      const result = await response.json();
+      if (result.courses) {
+        setCourses(result.courses || []);
       } else {
-        // ✅ Fallback to predefinedCourses
-        const { PREDEFINED_COURSES } = await import('./predefinedCourses');
-        setCourses(PREDEFINED_COURSES || []);
+        console.error('❌ No courses in response:', result);
       }
     } catch (error) {
-      console.log('🔄 Using default courses');
+      console.error('❌ Error fetching courses:', error);
     }
   };
 

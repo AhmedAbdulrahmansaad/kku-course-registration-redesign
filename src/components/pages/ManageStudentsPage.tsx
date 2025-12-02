@@ -36,7 +36,6 @@ import {
   DialogTitle,
 } from '../ui/dialog';
 import { projectId, publicAnonKey } from '../../utils/supabase/info';
-import { fetchJSON } from '../../utils/fetchWithTimeout';
 
 interface Student {
   user_id: string;
@@ -69,55 +68,60 @@ export const ManageStudentsPage: React.FC = () => {
   const fetchStudents = async () => {
     try {
       setLoading(true);
-      console.log('📚 [ManageStudents] Fetching students...');
-
-      let studentsData: any[] = [];
-
-      // ✅ Try backend first
-      try {
-        const result = await fetchJSON(
-          `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/admin/students`,
-          {
-            headers: {
-              Authorization: `Bearer ${publicAnonKey}`,
-            },
-            timeout: 10000,
-          }
-        );
-
-        if (result.success && result.students) {
-          studentsData = result.students;
-          console.log(`✅ [ManageStudents] Loaded ${studentsData.length} students from backend`);
-        }
-      } catch (backendError) {
-        console.log('🔄 [ManageStudents] Backend offline, using localStorage');
-      }
-
-      // ✅ Fallback to localStorage
-      if (studentsData.length === 0) {
-        const localUsers = localStorage.getItem('kku_users');
-        
-        if (localUsers) {
-          const parsedUsers = JSON.parse(localUsers);
-          studentsData = parsedUsers
-            .filter((u: any) => u.role === 'student')
-            .map((user: any) => ({
-              user_id: user.id,
-              student_id: user.studentId || user.id,
-              name: user.name,
-              email: user.email,
-              major: user.major || 'نظم المعلومات الإدارية',
-              level: user.level || 1,
-              gpa: user.gpa || 0,
-              role: user.role,
-              created_at: user.created_at || new Date().toISOString(),
-            }));
-          
-          console.log(`✅ [ManageStudents] Loaded ${studentsData.length} students from localStorage`);
-        }
-      }
       
-      setStudents(studentsData);
+      console.log('📚 [ManageStudents] Fetching students from SQL Database...');
+      
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/students`,
+        {
+          headers: {
+            Authorization: `Bearer ${publicAnonKey}`,
+          },
+        }
+      );
+
+      console.log('📚 [ManageStudents] Response status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ [ManageStudents] Server error:', errorText);
+        throw new Error(`Server error: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ [ManageStudents] Loaded students from SQL:', result);
+
+      if (result.success) {
+        // ✅ معالجة البيانات: دمج users مع students
+        const processedStudents = (result.students || []).map((user: any) => ({
+          user_id: user.id,
+          student_id: user.student_id,
+          name: user.name,
+          email: user.email,
+          major: user.students?.[0]?.major || 'MIS',
+          level: user.students?.[0]?.level || 1,
+          gpa: user.students?.[0]?.gpa || null,
+          role: user.role,
+          created_at: user.created_at,
+        }));
+        
+        console.log('✅ [ManageStudents] Processed students:', processedStudents);
+        
+        // ✅ طباعة أول 3 طلاب للتحقق من البيانات
+        processedStudents.slice(0, 3).forEach((student: any, index: number) => {
+          console.log(`👤 [ManageStudents] Student ${index + 1}:`, {
+            name: student.name,
+            student_id: student.student_id,
+            major: student.major,
+            level: student.level,
+            gpa: student.gpa
+          });
+        });
+        
+        setStudents(processedStudents);
+      } else {
+        throw new Error(result.error || 'Failed to load students');
+      }
     } catch (error: any) {
       console.error('❌ [ManageStudents] Error fetching students:', error);
       toast.error(
@@ -132,39 +136,44 @@ export const ManageStudentsPage: React.FC = () => {
   const handleDeleteStudent = async () => {
     try {
       setDeleting(true);
+      const accessToken = localStorage.getItem('access_token');
 
       if (!selectedStudent) return;
 
       console.log('🗑️ [ManageStudents] Deleting student:', selectedStudent.student_id);
 
-      // 🔥 حذف من localStorage مباشرة
-      const localUsers = localStorage.getItem('kku_users');
-      
-      if (localUsers) {
-        const parsedUsers = JSON.parse(localUsers);
-        // حذف الطالب من القائمة
-        const updatedUsers = parsedUsers.filter((u: any) => u.id !== selectedStudent.student_id);
-        
-        localStorage.setItem('kku_users', JSON.stringify(updatedUsers));
-        
-        console.log('✅ [ManageStudents] Student deleted from localStorage');
-        
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/students/${selectedStudent.student_id}`,
+        {
+          method: 'DELETE',
+          headers: {
+            Authorization: `Bearer ${accessToken || publicAnonKey}`,
+          },
+        }
+      );
+
+      console.log('🗑️ [ManageStudents] Delete response status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ [ManageStudents] Delete error:', errorText);
+        throw new Error(`Server error: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ [ManageStudents] Student deleted:', result);
+
+      if (result.success) {
         toast.success(
           language === 'ar'
             ? '✅ تم حذف الطالب بنجاح'
-            : '✅ Student deleted successfully',
-          {
-            description: language === 'ar'
-              ? '💾 تم التحديث في localStorage'
-              : '💾 Updated in localStorage'
-          }
+            : '✅ Student deleted successfully'
         );
-        
         setIsDeleteDialogOpen(false);
         setSelectedStudent(null);
-        await fetchStudents();
+        fetchStudents();
       } else {
-        throw new Error('No users data found');
+        throw new Error(result.error || 'Failed to delete student');
       }
     } catch (error: any) {
       console.error('❌ [ManageStudents] Error deleting student:', error);

@@ -25,9 +25,7 @@ import {
   PieChart
 } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
-import { supabase } from '../../utils/supabase/client';
 import { projectId, publicAnonKey } from '../../utils/supabase/info';
-import { fetchJSON } from '../../utils/fetchWithTimeout';
 
 interface DashboardStats {
   totalStudents: number;
@@ -56,61 +54,27 @@ export const AdminDashboard: React.FC = () => {
 
   const fetchStats = async () => {
     try {
-      console.log('📊 [AdminDashboard] Fetching stats...');
+      console.log('📊 [AdminDashboard] Fetching stats from SQL Database...');
 
-      let newStats = {
-        totalStudents: 0,
-        totalCourses: 49,
-        pendingRequests: 0,
-        approvedRequests: 0,
-        totalSupervisors: 0,
-        totalAdmins: 0,
-      };
-
-      // ✅ Try backend first
-      try {
-        const result = await fetchJSON(
-          `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/admin/stats`,
-          {
-            headers: {
-              Authorization: `Bearer ${publicAnonKey}`,
-            },
-            timeout: 10000,
-          }
-        );
-
-        if (result.success && result.stats) {
-          newStats = result.stats;
-          console.log('✅ [AdminDashboard] Loaded stats from backend');
+      // جلب إحصائيات النظام من SQL Database
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/dashboard/admin`,
+        {
+          headers: {
+            Authorization: `Bearer ${publicAnonKey}`,
+          },
         }
-      } catch (backendError) {
-        console.log('🔄 [AdminDashboard] Backend offline, using localStorage');
-      }
-
-      // ✅ Fallback to localStorage
-      if (newStats.totalStudents === 0) {
-        const localUsers = JSON.parse(localStorage.getItem('kku_users') || '[]');
-        const localRegs = JSON.parse(localStorage.getItem('kku_registrations') || '[]');
-        const localSupervisors = JSON.parse(localStorage.getItem('kku_supervisors') || '[]');
-
-        newStats = {
-          totalStudents: localUsers.filter((u: any) => u.role === 'student').length,
-          totalCourses: 49,
-          pendingRequests: localRegs.filter((r: any) => r.status === 'pending').length,
-          approvedRequests: localRegs.filter((r: any) => r.status === 'approved').length,
-          totalSupervisors: localSupervisors.length,
-          totalAdmins: localUsers.filter((u: any) => u.role === 'admin').length,
-        };
-
-        console.log('✅ [AdminDashboard] Loaded stats from localStorage:', newStats);
-      }
-
-      setStats(newStats);
-    } catch (error) {
-      console.error('❌ [AdminDashboard] Error fetching stats:', error);
-      toast.error(
-        language === 'ar' ? 'فشل في تحميل الإحصائيات' : 'Failed to load statistics'
       );
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ [AdminDashboard] SQL Database stats:', result.stats);
+        setStats(result.stats);
+      } else {
+        console.error('❌ [AdminDashboard] Failed to fetch stats');
+      }
+    } catch (error: any) {
+      console.error('❌ [AdminDashboard] Error fetching stats:', error);
     } finally {
       setLoading(false);
     }
@@ -395,7 +359,7 @@ export const AdminDashboard: React.FC = () => {
           <div className="flex items-center gap-3 p-4 bg-green-50 dark:bg-green-950/20 rounded-lg">
             <Database className="h-8 w-8 text-green-500" />
             <div>
-              <p className="font-medium">{language === 'ar' ? 'قاعدة البانات' : 'Database'}</p>
+              <p className="font-medium">{language === 'ar' ? 'قاعدة البيانات' : 'Database'}</p>
               <p className="text-sm text-green-600">{language === 'ar' ? 'نشط' : 'Active'}</p>
             </div>
           </div>

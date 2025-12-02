@@ -43,10 +43,10 @@ export const SchedulePage: React.FC = () => {
   const fetchSchedule = async () => {
     try {
       setLoading(true);
-      console.log('📅 [Schedule] Fetching schedule for user:', userInfo);
+      console.log('📅 Fetching schedule for user:', userInfo);
 
       if (!userInfo?.id) {
-        console.error('🚫 [Schedule] Access denied: User not logged in');
+        console.error('🚫 Access denied: User not logged in');
         toast.error(
           language === 'ar'
             ? 'يرجى تسجيل الدخول أولاً'
@@ -59,7 +59,7 @@ export const SchedulePage: React.FC = () => {
 
       const accessToken = localStorage.getItem('access_token');
       if (!accessToken) {
-        console.warn('⚠️ [Schedule] No access token found');
+        console.warn('⚠️ No access token found');
         toast.error(
           language === 'ar'
             ? 'يرجى تسجيل الدخول مرة أخرى'
@@ -70,72 +70,58 @@ export const SchedulePage: React.FC = () => {
         return;
       }
 
-      let approvedRegistrations: any[] = [];
-
-      // ✅ Try backend first
-      try {
-        const result = await fetchJSON(
-          `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/student/registrations`,
-          {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-            },
-            timeout: 10000,
-          }
-        );
-
-        console.log('📚 [Schedule] Backend registrations response:', result);
-
-        if (result.registrations) {
-          approvedRegistrations = result.registrations.filter(
-            (reg: any) => reg.status === 'approved'
-          );
-          console.log('✅ [Schedule] Loaded from backend:', approvedRegistrations.length);
+      // جلب المقررات المسجلة للطالب باستخدام fetchJSON مع timeout
+      const result = await fetchJSON(
+        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/student/registrations`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+          timeout: 10000, // 10 seconds timeout
         }
-      } catch (backendError: any) {
-        console.log('🔄 [Schedule] Backend offline, using localStorage');
-      }
+      );
 
-      // ✅ Fallback to localStorage if no backend data
-      if (approvedRegistrations.length === 0) {
-        const localRegs = JSON.parse(localStorage.getItem('kku_registrations') || '[]');
-        const userEmail = userInfo?.email || '';
-        
-        approvedRegistrations = localRegs.filter(
-          (reg: any) => 
-            reg.studentEmail === userEmail && 
-            reg.status === 'approved'
+      console.log('📚 Registrations response:', result);
+
+      if (result.registrations) {
+        const approvedRegistrations = result.registrations.filter(
+          (reg: any) => reg.status === 'approved'
         );
-        
-        console.log('✅ [Schedule] Loaded from localStorage:', approvedRegistrations.length);
-      }
 
-      // ✅ Generate schedule
-      if (approvedRegistrations.length === 0) {
+        console.log('✅ Approved registrations:', approvedRegistrations.length);
+
+        if (approvedRegistrations.length === 0) {
+          setScheduleData([]);
+          setTotalCourses(0);
+          setTotalHours(0);
+          setTotalInstructors(0);
+          return;
+        }
+
+        // استخراج المقررات من التسجيلات المقبولة
+        const approvedCourses = approvedRegistrations
+          .map((reg: any) => reg.course)
+          .filter((course: any) => course != null);
+
+        console.log('📚 Approved courses for schedule:', approvedCourses);
+
+        // توليد الجدول الدراسي تلقائياً
+        const schedule = generateSchedule(approvedCourses);
+        console.log('🗓️ Generated schedule:', schedule);
+
+        setScheduleData(schedule);
+        setTotalCourses(approvedCourses.length);
+        setTotalHours(getTotalCreditHours(approvedCourses));
+        setTotalInstructors(getUniqueInstructors(approvedCourses).length);
+      } else {
+        console.log('ℹ️ No approved registrations found');
         setScheduleData([]);
         setTotalCourses(0);
         setTotalHours(0);
         setTotalInstructors(0);
-        return;
       }
-
-      // استخراج المقررات من التسجيلات المقبولة
-      const approvedCourses = approvedRegistrations
-        .map((reg: any) => reg.course)
-        .filter((course: any) => course != null);
-
-      console.log('📚 [Schedule] Approved courses:', approvedCourses);
-
-      // توليد الجدول الدراسي تلقائياً
-      const schedule = generateSchedule(approvedCourses);
-      console.log('🗓️ [Schedule] Generated schedule:', schedule);
-
-      setScheduleData(schedule);
-      setTotalCourses(approvedCourses.length);
-      setTotalHours(getTotalCreditHours(approvedCourses));
-      setTotalInstructors(getUniqueInstructors(approvedCourses).length);
     } catch (error: any) {
-      console.error('❌ [Schedule] Error:', error);
+      console.error('❌ Error fetching schedule:', error);
       toast.error(
         language === 'ar' ? 'فشل في تحميل الجدول الدراسي' : 'Failed to load schedule'
       );

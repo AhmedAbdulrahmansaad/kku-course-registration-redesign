@@ -54,80 +54,21 @@ export const TranscriptPage: React.FC = () => {
   const fetchGrades = async () => {
     try {
       setLoading(true);
-      console.log('📊 [Transcript] Fetching grades for user:', userInfo);
+      console.log('📊 Fetching grades for user:', userInfo);
 
-      let gradesData: GradeRecord[] = [];
-
-      // ✅ Try to get real data from localStorage registrations
-      try {
-        const localRegs = JSON.parse(localStorage.getItem('kku_registrations') || '[]');
-        const userEmail = userInfo?.email || '';
-        
-        // Filter approved registrations for current user
-        const userRegistrations = localRegs.filter((reg: any) => 
-          reg.studentEmail === userEmail && 
-          reg.status === 'approved'
-        );
-
-        console.log('📚 [Transcript] Found', userRegistrations.length, 'approved registrations');
-
-        // Convert registrations to grade records
-        if (userRegistrations.length > 0) {
-          gradesData = userRegistrations.map((reg: any, index: number) => {
-            // Generate realistic grades (A, B+, B, etc.)
-            const gradeOptions = ['A+', 'A', 'B+', 'B', 'C+', 'C', 'D+', 'D'];
-            const randomGrade = gradeOptions[Math.floor(Math.random() * gradeOptions.length)];
-            
-            // Calculate percentage and points based on grade
-            const gradeMap: Record<string, { percentage: number; points: number }> = {
-              'A+': { percentage: 95, points: 5.0 },
-              'A': { percentage: 90, points: 4.75 },
-              'B+': { percentage: 85, points: 4.5 },
-              'B': { percentage: 80, points: 4.0 },
-              'C+': { percentage: 75, points: 3.5 },
-              'C': { percentage: 70, points: 3.0 },
-              'D+': { percentage: 65, points: 2.5 },
-              'D': { percentage: 60, points: 2.0 },
-            };
-
-            const gradeInfo = gradeMap[randomGrade] || { percentage: 85, points: 4.5 };
-
-            return {
-              course_code: reg.course?.code || `COURSE-${index + 1}`,
-              course_name_ar: reg.course?.name_ar || 'مقرر دراسي',
-              course_name_en: reg.course?.name_en || 'Course Name',
-              credit_hours: reg.course?.credit_hours || 3,
-              letter_grade: randomGrade,
-              percentage: gradeInfo.percentage,
-              points: gradeInfo.points,
-              semester: reg.semester || 'Fall 2024',
-              level: reg.course?.level || 1,
-              status: 'completed',
-            };
-          });
-
-          console.log('✅ [Transcript] Built transcript from registrations');
-        }
-      } catch (localError) {
-        console.log('🔄 [Transcript] Could not load from registrations, using sample data');
-      }
-
-      // ✅ Fallback to sample grades if no real data
-      if (gradesData.length === 0) {
-        console.log('💾 [Transcript] Using sample grades');
-        gradesData = generateSampleGrades();
-      }
-
-      setGrades(gradesData);
+      // مؤقتاً: استخدام بيانات تجريبية
+      // في المستقبل، يمكن جلب البيانات من السيرفر
+      const sampleGrades = generateSampleGrades();
+      setGrades(sampleGrades);
 
       // حساب المعدل
-      const gpaCalculation = calculateGPA(gradesData);
+      const gpaCalculation = calculateGPA(sampleGrades);
       setGpaData(gpaCalculation);
 
-      console.log('✅ [Transcript] Grades loaded:', gradesData.length);
-      console.log('📊 [Transcript] GPA Data:', gpaCalculation);
+      console.log('✅ Grades loaded:', sampleGrades.length);
+      console.log('📊 GPA Data:', gpaCalculation);
     } catch (error) {
-      console.error('❌ [Transcript] Error fetching grades:', error);
+      console.error('❌ Error fetching grades:', error);
       toast.error(
         language === 'ar'
           ? 'فشل في تحميل السجل الأكاديمي'

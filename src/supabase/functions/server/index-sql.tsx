@@ -172,25 +172,15 @@ app.post('/make-server-1573e40a/auth/signup', async (c) => {
 
     // ✅ إذا كان طالب، إنشاء سجل في جدول students
     if (role === 'student') {
-      // ✅ التحقق من أن البيانات الإلزامية موجودة للطلاب
-      if (!level || !major) {
-        console.error('❌ Missing required student data:', { level, major });
-        return c.json({ 
-          error: 'بيانات الطالب غير مكتملة. يرجى التأكد من اختيار التخصص والمستوى الدراسي',
-          error_en: 'Student data incomplete. Please ensure major and level are selected',
-          code: 'MISSING_STUDENT_DATA'
-        }, 400);
-      }
-
       const { error: studentError } = await supabase
         .from('students')
         .insert({
           user_id: userData.id,
-          level: parseInt(level), // ✅ التحويل إلى رقم صريح
-          gpa: gpa ? parseFloat(gpa) : 0.0,
+          level: level || 1,
+          gpa: gpa || 0.0,
           total_credits: 0,
           completed_credits: 0,
-          major: major, // ✅ استخدام القيمة المرسلة بدون fallback
+          major: major || 'Management Information Systems',
           status: 'active',
           enrollment_year: new Date().getFullYear(),
         });

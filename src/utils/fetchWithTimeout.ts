@@ -54,14 +54,14 @@ export async function fetchJSON<T = any>(
     
     if (!response.ok) {
       const errorText = await response.text();
-      // ✅ صامت - لا نعرض في Console
+      console.error(`❌ Fetch error (${response.status}):`, errorText);
       throw new Error(`Server error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
     return data;
   } catch (error: any) {
-    // ✅ صامت - لا نعرض في Console
+    console.error('❌ Fetch JSON error:', error);
     throw error;
   }
 }
