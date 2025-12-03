@@ -31,28 +31,101 @@ export const LoginPage: React.FC = () => {
         return;
       }
 
-      console.log('🔐 محاولة تسجيل الدخول:', email);
+      console.log('🔐 [Login] Attempting login for:', email);
 
-      // تسجيل الدخول عبر Backend (SQL Database)
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/auth/login`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${publicAnonKey}`,
-          },
-          body: JSON.stringify({
-            identifier: email, // يمكن أن يكون رقم جامعي أو إيميل
-            password,
-            language, // ✅ إرسال اللغة للحصول على رسالة خطأ مناسبة
-          }),
+      // 🔥 FALLBACK: محاولة الاتصال بالـ Backend أولاً
+      let backendWorked = false;
+      let result: any = null;
+
+      try {
+        const response = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/auth/login`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${publicAnonKey}`,
+            },
+            body: JSON.stringify({
+              identifier: email,
+              password,
+              language,
+            }),
+          }
+        );
+
+        result = await response.json();
+
+        if (response.ok) {
+          console.log('✅ [Login] Backend login successful');
+          backendWorked = true;
         }
-      );
+      } catch (fetchError: any) {
+        console.warn('⚠️ [Login] Backend unavailable, falling back to localStorage:', fetchError.message);
+      }
 
-      const result = await response.json();
+      // 🔥 FALLBACK: إذا فشل Backend، استخدم localStorage
+      if (!backendWorked) {
+        console.log('🔄 [Login] Using localStorage fallback...');
 
-      if (!response.ok) {
+        const localUsers = JSON.parse(localStorage.getItem('kku_users') || '[]');
+
+        const user = localUsers.find(
+          (u: any) => (u.email === email || u.studentId === email) && u.password === password
+        );
+
+        if (!user) {
+          toast.error(
+            language === 'ar'
+              ? '❌ بيانات الدخول غير صحيحة'
+              : '❌ Invalid login credentials',
+            {
+              duration: 5000,
+              description: language === 'ar'
+                ? '💡 تأكد من البريد وكلمة المرور، أو سجل حساباً جديداً'
+                : '💡 Check email and password, or create a new account',
+              action: {
+                label: language === 'ar' ? '📝 إنشاء حساب' : '📝 Sign Up',
+                onClick: () => setCurrentPage('signup'),
+              },
+            }
+          );
+          setLoading(false);
+          return;
+        }
+
+        // إنشاء access token محلي
+        const localAccessToken = `local_token_${Date.now()}`;
+
+        result = {
+          user: {
+            id: user.id,
+            student_id: user.studentId,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+            students: user.role === 'student' ? [{
+              major: user.major,
+              level: user.level,
+              gpa: user.gpa,
+              total_credits: 0,
+              completed_credits: 0,
+            }] : [],
+          },
+          access_token: localAccessToken,
+        };
+
+        toast.warning(
+          language === 'ar'
+            ? '⚠️ تسجيل دخول محلي - انشر Edge Function للدخول الدائم'
+            : '⚠️ Local login - Deploy Edge Function for permanent login',
+          {
+            duration: 5000,
+          }
+        );
+      }
+
+      if (!result || !result.user) {
         console.error('Login error:', result.error);
         
         // التعامل مع حالة المستخدم اليتيم

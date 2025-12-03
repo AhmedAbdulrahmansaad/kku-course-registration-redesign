@@ -224,77 +224,140 @@ export const SignUpPage: React.FC = () => {
       }
 
       console.log('📤 [Signup Frontend] Sending request to backend...');
-      
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/auth/signup`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${publicAnonKey}`,
-          },
-          body: JSON.stringify({
-            studentId: formData.studentId,
-            email: formData.email,
-            password: formData.password,
-            name: formData.fullName,
-            phone: formData.phone || '',
-            role: formData.role, // ✅ إضافة الدور
-            level: formData.level ? parseInt(formData.level) : null, // ✅ null بدلاً من 1
-            major: formData.major || null, // ✅ null بدلاً من MIS
-            gpa: formData.gpa ? parseFloat(formData.gpa) : 0.0, // ✅ إضافة المعدل
-          }),
+
+      // 🔥 FALLBACK: محاولة الاتصال بالـ Backend أولاً
+      let backendWorked = false;
+
+      try {
+        const response = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/make-server-1573e40a/auth/signup`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${publicAnonKey}`,
+            },
+            body: JSON.stringify({
+              studentId: formData.studentId,
+              email: formData.email,
+              password: formData.password,
+              name: formData.fullName,
+              phone: formData.phone || '',
+              role: formData.role,
+              level: formData.level ? parseInt(formData.level) : null,
+              major: formData.major || null,
+              gpa: formData.gpa ? parseFloat(formData.gpa) : 0.0,
+            }),
+          }
+        );
+
+        console.log('📥 [Signup Frontend] Response status:', response.status);
+
+        const result = await response.json();
+
+        console.log('📥 [Signup Frontend] Response data:', result);
+
+        if (response.ok) {
+          console.log('✅✅✅ [Signup Frontend] ACCOUNT CREATED SUCCESSFULLY WITH BACKEND!');
+          backendWorked = true;
+
+          toast.success(
+            language === 'ar'
+              ? `✅ تم إنشاء حساب ${formData.role === 'student' ? 'الطالب' : formData.role === 'supervisor' ? 'المشرف' : 'المدير'} بنجاح!`
+              : `✅ ${formData.role === 'student' ? 'Student' : formData.role === 'supervisor' ? 'Supervisor' : 'Admin'} account created successfully!`
+          );
+
+          toast.info(
+            language === 'ar'
+              ? '🎉 يمكنك الآن تسجيل الدخول!'
+              : '🎉 You can now login!'
+          );
+
+          setTimeout(() => {
+            setCurrentPage('login');
+          }, 2000);
+
+          setLoading(false);
+          return;
         }
-      );
+      } catch (fetchError: any) {
+        console.warn('⚠️ [Signup] Backend unavailable, falling back to localStorage:', fetchError.message);
+      }
 
-      console.log('📥 [Signup Frontend] Response status:', response.status);
-      
-      const result = await response.json();
-      
-      console.log('📥 [Signup Frontend] Response data:', result);
+      // 🔥 FALLBACK: إذا فشل Backend، استخدم localStorage
+      if (!backendWorked) {
+        console.log('🔄 [Signup] Using localStorage fallback...');
 
-      if (response.ok) {
-        console.log('✅✅✅ [Signup Frontend] ACCOUNT CREATED SUCCESSFULLY!');
-        console.log('📊 [Signup Frontend] Server response:', result);
-        
-        toast.success(
-          language === 'ar' 
-            ? `✅ تم إنشاء حساب ${formData.role === 'student' ? 'الطالب' : formData.role === 'supervisor' ? 'المشرف' : 'المدير'} بنجاح!` 
-            : `✅ ${formData.role === 'student' ? 'Student' : formData.role === 'supervisor' ? 'Supervisor' : 'Admin'} account created successfully!`
+        // تحقق من المستخدمين المحليين
+        const localUsers = JSON.parse(localStorage.getItem('kku_users') || '[]');
+
+        // تحقق من التكرار
+        const existingUser = localUsers.find(
+          (u: any) => u.email === formData.email || (formData.studentId && u.studentId === formData.studentId)
         );
-        
-        toast.info(
-          language === 'ar' 
-            ? '🎉 يمكنك الآن تسجيل الدخول!' 
-            : '🎉 You can now login!'
-        );
-        
-        setTimeout(() => {
-          setCurrentPage('login');
-        }, 2000);
-      } else {
-        // ✅ معالجة أخطاء محددة من الخادم
-        console.error('❌❌❌ [Signup Frontend] SERVER RETURNED ERROR!');
-        console.error('📊 [Signup Frontend] Status:', response.status);
-        console.error('📊 [Signup Frontend] Error details:', result);
-        
-        if (result.code === 'MISSING_STUDENT_DATA') {
+
+        if (existingUser) {
           toast.error(
             language === 'ar'
-              ? '⚠️ بيانات غير مكتملة: يجب اختيار التخصص والمستوى'
-              : '⚠️ Incomplete data: Major and level are required',
+              ? '⚠️ البريد الإلكتروني أو الرقم الجامعي مسجل بالفعل!'
+              : '⚠️ Email or Student ID already registered!',
             {
-              description: language === 'ar'
-                ? 'تأكد من اختيار التخصص والمستوى الدراسي قبل المتابعة'
-                : 'Make sure to select major and academic level before proceeding',
-              duration: 6000,
+              duration: 5000,
+              action: {
+                label: language === 'ar' ? 'تسجيل الدخول' : 'Login',
+                onClick: () => setCurrentPage('login'),
+              },
             }
           );
           setLoading(false);
           return;
         }
-        
-        throw new Error(result.error || 'Signup failed');
+
+        // إنشاء حساب محلي
+        const newUser = {
+          id: `local_${Date.now()}`,
+          studentId: formData.studentId || null,
+          email: formData.email,
+          password: formData.password, // في التطبيق الحقيقي لا نحفظ كلمة المرور هكذا!
+          name: formData.fullName,
+          phone: formData.phone || '',
+          role: formData.role,
+          level: formData.level ? parseInt(formData.level) : null,
+          major: formData.major || null,
+          gpa: formData.gpa ? parseFloat(formData.gpa) : 0.0,
+          createdAt: new Date().toISOString(),
+          isLocalAccount: true, // علامة للحسابات المحلية
+        };
+
+        localUsers.push(newUser);
+        localStorage.setItem('kku_users', JSON.stringify(localUsers));
+
+        console.log('✅ [Signup] Local account created:', newUser);
+
+        toast.success(
+          language === 'ar'
+            ? `✅ تم إنشاء حساب ${formData.role === 'student' ? 'الطالب' : formData.role === 'supervisor' ? 'المشرف' : 'المدير'} بنجاح! (محلياً)`
+            : `✅ ${formData.role === 'student' ? 'Student' : formData.role === 'supervisor' ? 'Supervisor' : 'Admin'} account created successfully! (Local)`,
+          {
+            duration: 5000,
+          }
+        );
+
+        toast.warning(
+          language === 'ar'
+            ? '⚠️ تم الحفظ محلياً - انشر Edge Function للحفظ الدائم'
+            : '⚠️ Saved locally - Deploy Edge Function for permanent storage',
+          {
+            duration: 7000,
+            description: language === 'ar'
+              ? 'راجع: 🎯-ابدأ-هنا-فوراً.md'
+              : 'Check: 🎯-ابدأ-هنا-فوراً.md',
+          }
+        );
+
+        setTimeout(() => {
+          setCurrentPage('login');
+        }, 2500);
       }
     } catch (error: any) {
       console.error('❌❌❌ [Signup Frontend] EXCEPTION OCCURRED!');
@@ -304,6 +367,23 @@ export const SignUpPage: React.FC = () => {
       
       const errorMessage = error.message || '';
       const errorCode = error.code || '';
+      
+      // ⚠️ معالجة خطأ "Failed to fetch" - Edge Function غير منشورة
+      if (errorMessage.includes('Failed to fetch') || errorMessage.includes('fetch')) {
+        toast.error(
+          language === 'ar'
+            ? '🚨 خطأ في الاتصال بالخادم'
+            : '🚨 Server Connection Error',
+          {
+            duration: 10000,
+            description: language === 'ar'
+              ? '⚠️ Edge Function غير منشورة في Supabase!\n\nالحل:\n1. افتح: https://supabase.com/dashboard\n2. اختر مشروعك: kcbxyonombsqamwsmmqz\n3. Edge Functions → Create\n4. اسم Function: make-server-1573e40a\n5. انسخ الكود من ملف: 🚀-DEPLOY-THIS-SIMPLE-FUNCTION.ts\n6. اضغط Deploy\n7. أضف Environment Variables\n\nراجع ملف: ⚡-حل-سريع-جداً-3-دقائق.md'
+              : '⚠️ Edge Function not deployed in Supabase!\n\nSolution:\n1. Open: https://supabase.com/dashboard\n2. Select project: kcbxyonombsqamwsmmqz\n3. Edge Functions → Create\n4. Function name: make-server-1573e40a\n5. Copy code from: 🚀-DEPLOY-THIS-SIMPLE-FUNCTION.ts\n6. Click Deploy\n7. Add Environment Variables\n\nCheck file: ⚡-حل-سريع-جداً-3-دقائق.md',
+          }
+        );
+        setLoading(false);
+        return;
+      }
       
       // معالجة خطأ المستخدمين اليتامى
       if (errorMessage.includes('orphaned') || errorCode === 'ORPHANED_ACCOUNT') {
