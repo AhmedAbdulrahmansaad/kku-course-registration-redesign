@@ -756,7 +756,7 @@ app.get('/make-server-1573e40a/courses', async (c) => {
     let query = supabase
       .from('courses')
       .select('*')
-      .eq('active', true);
+      .eq('is_elective', true);
 
     if (level) {
       query = query.eq('level', parseInt(level));
